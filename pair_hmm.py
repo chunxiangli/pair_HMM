@@ -194,7 +194,7 @@ def pairSimulationAndAlignment(plot=True):
 		realTime = replicateSimulation(settings.IN_FILE, replicate)
 
 		f1 = open(settings.IN_FILE, 'r')
-		for j in range(2):
+		for j in range(36):
 			f2 = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
 			settings.TIME = 0.05 + j*0.01
 			t.append(settings.TIME)
@@ -249,7 +249,7 @@ def checkAlignmentParameters():
 			accArr.append(np.array(acc).mean())
 		accuracy.append(accArr)
 
-	fName = "alignmentOverVariantParameters_generate(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f).fas"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+	fName = "alignmentOverVariantParameters_generate(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d).fas"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH)
 	title = "Alignment(t=%.3f, a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
 	plotAlignmentResult(tArr, accuracy, t ,fName, title, indelArr)
 		
@@ -452,7 +452,7 @@ def checkIndelEffect():
                 result = pairSimulationAndAlignment(False)
 		accArr.append(result[1])
 		t = result[0]
-	fName = "alignmentOverVariantIndelRate_t%.3f_e%.3f_l%.3f_g%.3f.png"%(realTime, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+	fName = "alignmentOverVariantIndelRate_t%.3f_e%.3f_l%.3f_g%.3f_len%d.png"%(realTime, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH)
 	title = "Alignment Result with variant distance parameters"
 	plotAlignmentResult(t, accArr, realTime, fName, title, indelArr)
 
