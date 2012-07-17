@@ -1,4 +1,6 @@
 *.py[co]
+*.fas
+*.png
 
 # Packages
 *.egg

@@ -50,6 +50,8 @@ ITERATE = 1
 REPLICATE = 1
 
 ACHECK = False
+
+PCHECK = False
 # output file name
 OUT_FILE = ROOT + "/data/realign.fas"
 

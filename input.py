@@ -28,7 +28,8 @@ def readArgv(argv):
 		'tree': 'TREE'
 	}
 	boolArguments = {
-		'acheck': 'ACHECK' }
+		'acheck': 'ACHECK',
+		'pcheck': 'PCHECK' }
 
 	for x in range(1, len(argv)):
 		key, value = argv[x].split("=",2)

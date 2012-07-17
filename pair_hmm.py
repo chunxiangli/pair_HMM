@@ -97,7 +97,7 @@ def observedDifference(seqPair):
 	return (observedP) 
 
 	
-def pairSimulation(outFile, rep=1):
+def pairSimulation(outFile, rep=1, plot=True):
 	if None == settings.TREE:
 		(left, t1) = ('A', (settings.TIME/2))
 		(right, t2) = ('B', (settings.TIME/2))
@@ -121,12 +121,13 @@ def pairSimulation(outFile, rep=1):
 			p.append(pair_hmm.observedDif)
                 indelArr.append(pair_hmm.indelNum)
                 matchArr.append(pair_hmm.matchNum)
-	eInDel = pair_hmm.getExpectedInDel()
-	eMatch = pair_hmm.getExpectedMatch()
-	fName = "estimate_distance.len%d_a%.2f_e%.2f_rep%d.png"%(settings.LENGTH, settings.INDEL, settings.EPSILON, settings.REPLICATE)
-	xlabel = "Replicate Sequence"
-	title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
-        plotSimulationResult(np.arange(settings.REPLICATE), t1+t2, d2t(p2d(np.array(p))), None, eInDel, np.array(indelArr), eMatch, np.array(matchArr), xlabel, fName, title)
+	if plot:
+		eInDel = pair_hmm.getExpectedInDel()
+		eMatch = pair_hmm.getExpectedMatch()
+		fName = "estimate_distance.len%d_a%.2f_e%.2f_rep%d.png"%(settings.LENGTH, settings.INDEL, settings.EPSILON, settings.REPLICATE)
+		xlabel = "Replicate Sequence"
+		title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+        	plotSimulationResult(np.arange(settings.REPLICATE), t1+t2, d2t(p2d(np.array(p))), None, eInDel, np.array(indelArr), eMatch, np.array(matchArr), xlabel, fName, title)
 	
 	return (t1 + t2)
 
@@ -183,35 +184,76 @@ def alignment(inFile, outFile, t=0):
 	observedP = pair_hmm.observedDif
 	return (observedP, accuracy)
 
-def pairSimulationAndAlignment():
-	localIter = settings.REPLICATE 
+def pairSimulationAndAlignment(plot=True):
+	replicate = settings.REPLICATE 
 	P = []
 	t = []
 	accuracy = []
+	realTime = 0
 	try:
-		f1 = open(settings.IN_FILE, 'w')
-		realTime = pairSimulation(f1, localIter)
-		f1.close()
+		realTime = replicateSimulation(settings.IN_FILE, replicate)
 
-		f2 = open(settings.OUT_FILE, 'w')
-		for j in range(36):
+		f1 = open(settings.IN_FILE, 'r')
+		for j in range(2):
+			f2 = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
 			settings.TIME = 0.05 + j*0.01
 			t.append(settings.TIME)
 			accArr = []	
-			f1 = open(settings.IN_FILE, 'r')
-			for i in range(localIter):
+			for i in range(replicate):
 				(a, b) = alignment(f1, f2, 1)
 				#P.append(a)
 				accArr.append(b)
+			f1.seek(0)
 			accuracy.append(np.array(accArr).mean())
+			f2.close()
 		f1.close()
-		f2.close()
-		fName = "realignment_t0.05:0.4_a%.3f_e%.3f_len%d_rep%d.png"%(settings.INDEL, settings.EPSILON, settings.LENGTH, settings.REPLICATE)
-		title = "Alignment(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
-		plotAlignmentResult(t, accuracy, realTime ,fName, title)
+		if plot:
+			fName = "realignment_t0.05:0.4_a%.3f_e%.3f_len%d_rep%d.png"%(settings.INDEL, settings.EPSILON, settings.LENGTH, settings.REPLICATE)
+			title = "Alignment(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+			plotAlignmentResult(t, [accuracy], realTime ,fName, title)
 
 	except IOError as e:
         	print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
+	return (t, accuracy, realTime)
+
+def replicateSimulation(outFile, replicate=1, plot=True):
+	of = open(outFile, 'w')
+	realTime = pairSimulation(of, replicate, plot)
+	of.close()	
+	return realTime
+
+def checkAlignmentParameters():
+	indel = settings.INDEL
+	t = settings.TIME
+	replicateSimulation(settings.IN_FILE, settings.REPLICATE, False)
+	
+	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
+	tArr = [0.05 + i * 0.01 for i in range(36)]
+	accuracy = []
+
+	iF = open(settings.IN_FILE, 'r')
+	for i in range(9):
+		settings.INDEL = 0.02 + i * 0.01
+		accArr = []
+		for j in range(36):
+			ofName = re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE)
+			#of = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
+			of = open(ofName, 'w')
+			settings.TIME = 0.05 + j * 0.01
+			acc = []
+			for k in range(settings.REPLICATE):
+				(a, b) = alignment(iF, of, 1)
+				acc.append(b)
+			of.close()
+			iF.seek(0)
+			accArr.append(np.array(acc).mean())
+		accuracy.append(accArr)
+
+	fName = "alignmentOverVariantParameters_generate(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f).fas"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+	title = "Alignment(t=%.3f, a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+	plotAlignmentResult(tArr, accuracy, t ,fName, title, indelArr)
+		
+	iF.close()
 
 def runIndelible(start, step, times, subRate, length):
 	observedDif = []
@@ -391,19 +433,39 @@ def treeSimulation(outFile, seq=None):
 		if not isTaxa((left, right)[i]):
 			treeSimulation(outFile, sequences[i])	
 	return 0
+
+def checkIndelEffect():
+	iFile = settings.IN_FILE
+        oFile = settings.OUT_FILE
+
+	indelArr = []
+	accArr = []
+	realTime = settings.TIME
+	t = []
+        for a in range(9):
+        	print "a=%d"%(a)
+                start = time.clock()
+                settings.INDEL = 0.02 + a * 0.01
+		indelArr.append(settings.INDEL)
+                settings.IN_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),iFile)
+                settings.OUT_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),oFile)
+                result = pairSimulationAndAlignment(False)
+		accArr.append(result[1])
+		t = result[0]
+	fName = "alignmentOverVariantIndelRate_t%.3f_e%.3f_l%.3f_g%.3f.png"%(realTime, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+	title = "Alignment Result with variant distance parameters"
+	plotAlignmentResult(t, accArr, realTime, fName, title, indelArr)
+
 		
 def main(argv):
 	#random.seed(1)
 	validateArgv(argv)
 	#Read command line argument to settings
 	readArgv(argv)
-	if False != settings.ACHECK:
-		for a in range(9):
-			print "a=%d"%(a)
-			settings.INDEL = 0.02 + a * 0.01	
-			settings.IN_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),settings.IN_FILE)
-			settings.OUT_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),settings.OUT_FILE)
-			pairSimulationAndAlignment()
+	if settings.PCHECK:
+		checkAlignmentParameters()
+	elif False != settings.ACHECK:
+		checkIndelEffect()
 	elif None == settings.TREE:
 		checkAccuracySimulation()
 	elif len(re.findall('\(',settings.TREE)) < 2:

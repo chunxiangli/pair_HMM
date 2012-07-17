@@ -46,22 +46,32 @@ def plotSimulationResult(t, eTReal, oTReal, oIndelibleDif, eInDel, oInDel, eMatc
         pyplot.subplot(313)
         plotMatchEvents(t, eMatch, oMatch)
 	pyplot.xlabel(xlabel)
-        pyplot.savefig(fileName, dpi=300)
+        pyplot.savefig('./image/'+fileName, dpi=300)
+	pyplot.close()
         #pyplot.show()
 
-def plotAlignmentResult(t, accuracy,realTime, fileName, title):
-	pyplot.figure(2,(10,8))
-        pyplot.plot(np.array(t), np.array(accuracy))
+def plotAlignmentResult(t, accuracy,realTime, fileName, title, indel=None):
+	pyplot.figure(2,(14,10))
+	pyplot.gca().set_color_cycle(['black','red','blue','yellow','green','purple', 'k', 'c', 'm'])
+	for a in accuracy:
+        	pyplot.plot(np.array(t), np.array(a))
+	if None != indel:
+		pyplot.legend(indel, loc='center left', bbox_to_anchor=(1, 0.5))
+        #pyplot.plot(np.array(t), np.array(accuracy))
 	pyplot.title(title)
         pyplot.xlabel("distance")
         pyplot.ylabel("accuracy")
         pyplot.xlim(0.05, 0.4)
+        pyplot.ylim(np.array(accuracy).min()-0.01, 1)
+	'''
         pyplot.ylim(np.array(accuracy).min()-0.1, 1)
         maxAcc = np.array(accuracy).max()
         pyplot.annotate('local max(%.2f, %.4f)'%(t[accuracy.index(maxAcc)], maxAcc), xy=(t[accuracy.index(maxAcc)], maxAcc), xycoords='data', xytext=(0.6, 0.9), 
 textcoords='axes fraction', arrowprops=dict(facecolor="red", shrink=0.02))
         pyplot.annotate('real(%.2f,%.4f)'%(realTime, accuracy[t.index(realTime)]), xy=(realTime, accuracy[t.index(realTime)]), xycoords='data', xytext=(0.5, 0.5)
 , textcoords='axes fraction', arrowprops=dict(facecolor="black", shrink=0.02))
-        pyplot.savefig(fileName, dpi=200)
+	'''
+        pyplot.savefig('./image/'+fileName, dpi=200)
+	pyplot.close()
         #pyplot.show()
  

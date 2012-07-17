@@ -440,6 +440,7 @@ class pHMM:
 		stateNum = len(stateArr)
 		a = [mInf for i in range(stateNum)]
 		s = [0 for i in range(stateNum)]
+		start = time.clock()
 		for i in range(xRange):
 			for j in range(yRange):
 				if i != 0 or j != 0:
@@ -471,7 +472,6 @@ class pHMM:
 								scoreMatrix[stateArr[stateIndex].stateType][yIndex] = a[stateIndex]
 					if xRange - 1 != i or yRange - 1 != j:
 						a = copy.deepcopy(s)
-
 		return self.optimalAlignment(seq, s, pointerMatrix)
 
 	def setStateDistribution(self):
