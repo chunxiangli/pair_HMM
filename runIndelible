@@ -1,0 +1,28 @@
+#!/bin/bash
+INDELIB_DIR=/home/czli/Downloads/INDELibleV1.03/
+CONTROL_FILE=${INDELIB_DIR}control.txt
+star=$1
+step=$2
+t=$3
+indel=$4
+rootLength=$5
+i=0
+branchLength=0
+while [ $i -lt $t ]; do
+	branchLength=`echo "$star+$i*$step"|bc| awk '{printf "%.3f\n", $(0)/2}'`
+	echo "[TYPE] NUCLEOTIDE 1">$CONTROL_FILE
+	echo "[MODEL]    modelname">>$CONTROL_FILE
+	echo "[submodel] JC">>$CONTROL_FILE
+	#echo "[rates]   $indel 0 0">>$CONTROL_FILE
+	echo "[TREE] treename  (A:$branchLength,B:$branchLength);">>$CONTROL_FILE
+	echo "[PARTITIONS] partitionname">>$CONTROL_FILE
+ 	echo "[treename modelname $rootLength]">>$CONTROL_FILE
+	echo "[SETTINGS]">>$CONTROL_FILE
+ 	echo " [ancestralprint] SAME">>$CONTROL_FILE
+	echo "[EVOLVE] partitionname 1 ./data/output$branchLength">>$CONTROL_FILE 
+	cd ${INDELIB_DIR};./src/indelible
+	while [ $? -ne 0 ]; do
+		sleep 1
+	done
+	((i++))
+done

@@ -1,0 +1,27 @@
+#!/usr/bin/octave -q
+P = load('input');
+T = P';
+[V,D] = eig(T);
+
+l = length(P);
+c = 0;
+for i = 1:l
+        if((D(i,i)-1)^2<1e-5)
+                c = i;
+        endif;
+endfor;
+
+s = 0;
+for i = 1:l
+        s += V(i,c);
+endfor;
+
+R = zeros(1,l);
+for i = 1:l
+        R(i) = V(i,c)/s;
+endfor;
+
+for i = 1:l
+        printf("%f ",R(i));
+endfor;
+printf("\n"); 
