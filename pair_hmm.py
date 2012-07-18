@@ -97,7 +97,7 @@ def observedDifference(seqPair):
 	return (observedP) 
 
 	
-def pairSimulation(outFile, rep=1, plot=True):
+def pairSimulation(outFile, plot=True):
 	if None == settings.TREE:
 		(left, t1) = ('A', (settings.TIME/2))
 		(right, t2) = ('B', (settings.TIME/2))
@@ -111,7 +111,7 @@ def pairSimulation(outFile, rep=1, plot=True):
 	p = []
 	indelArr = []
 	matchArr = []
-	for i in range(rep):
+	for i in range(settings.REPLICATE):
 		children  = pair_hmm.generateSeq(settings.LENGTH)
 		printFastaFile(children, outFile)
                 if pair_hmm.observedDif >= 0.75:
@@ -121,7 +121,7 @@ def pairSimulation(outFile, rep=1, plot=True):
 			p.append(pair_hmm.observedDif)
                 indelArr.append(pair_hmm.indelNum)
                 matchArr.append(pair_hmm.matchNum)
-	if plot:
+	if plot and settings.REPLICATE > 2:
 		eInDel = pair_hmm.getExpectedInDel()
 		eMatch = pair_hmm.getExpectedMatch()
 		fName = "estimate_distance.len%d_a%.2f_e%.2f_rep%d.png"%(settings.LENGTH, settings.INDEL, settings.EPSILON, settings.REPLICATE)
@@ -185,21 +185,19 @@ def alignment(inFile, outFile, t=0):
 	return (observedP, accuracy)
 
 def pairSimulationAndAlignment(plot=True):
-	replicate = settings.REPLICATE 
 	P = []
-	t = []
+	t = [ 0.05+i*0.01 for i in range(36)]
 	accuracy = []
 	realTime = 0
 	try:
-		realTime = replicateSimulation(settings.IN_FILE, replicate)
+		realTime = replicateSimulation(settings.IN_FILE)
 
 		f1 = open(settings.IN_FILE, 'r')
-		for j in range(36):
+		for j in t:
+			settings.TIME = j
 			f2 = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
-			settings.TIME = 0.05 + j*0.01
-			t.append(settings.TIME)
 			accArr = []	
-			for i in range(replicate):
+			for i in range(settings.REPLICATE):
 				(a, b) = alignment(f1, f2, 1)
 				#P.append(a)
 				accArr.append(b)
@@ -216,16 +214,15 @@ def pairSimulationAndAlignment(plot=True):
         	print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
 	return (t, accuracy, realTime)
 
-def replicateSimulation(outFile, replicate=1, plot=True):
+def replicateSimulation(outFile, plot=True):
 	of = open(outFile, 'w')
-	realTime = pairSimulation(of, replicate, plot)
+	realTime = pairSimulation(of, plot)
 	of.close()	
 	return realTime
 
 def checkAlignmentParameters():
 	indel = settings.INDEL
-	t = settings.TIME
-	replicateSimulation(settings.IN_FILE, settings.REPLICATE, False)
+	t = replicateSimulation(settings.IN_FILE, False)
 	
 	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
 	tArr = [0.05 + i * 0.01 for i in range(36)]
@@ -249,7 +246,7 @@ def checkAlignmentParameters():
 			accArr.append(np.array(acc).mean())
 		accuracy.append(accArr)
 
-	fName = "alignmentOverVariantParameters_generate(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d).fas"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH)
+	fName = "alignmentOverVariantParameters_generate(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d).png"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH)
 	title = "Alignment(t=%.3f, a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
 	plotAlignmentResult(tArr, accuracy, t ,fName, title, indelArr)
 		
@@ -332,7 +329,7 @@ def checkAccuracySimulation():
 	accuracy = []
 	meanEstimateDistance = 0
 	meanAccuracy = 0
-	localIter = 1 
+	localIter = 20 
 	try:
 		start = settings.TIME
 		f1 = open(settings.IN_FILE, 'w')
@@ -379,7 +376,7 @@ def checkAccuracySimulation():
 			fName = "estimate_distance.len%d_a%.2f_e%.2f_iter%d.png"%(settings.LENGTH, settings.INDEL, settings.EPSILON, settings.ITERATE)
 			xlabel = "Simulated Time Distance"
 			title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
-			plotSimulationResult(t, t, oTReal, oIndelibleDif, np.array(eInDel), oInDel, np.array(eMatch), match, xlabel, fName, title)
+			plotSimulationResult(t, t, oTReal, oIndelibleDif, np.array(eInDel), oInDel, np.array(eMatch), np.array(match), xlabel, fName, title)
 	except IOError as e:
                 print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
 

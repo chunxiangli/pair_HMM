@@ -189,9 +189,7 @@ class State:
 			return self.children[randomIndex(self.outFreq)]
 #empty for dummystate
 
-def openGapProb(t):
-		return (1- math.exp(-settings.INDEL * (t)))
-
+def openGapProb(t): return (1- math.exp(-settings.INDEL * (t))) 
 class pHMM:
 	gapOpenProb = 1	
 	
@@ -262,7 +260,7 @@ class pHMM:
 		self.transMatrix = []
 		self.transMatrix.append([0, self.gapOpenProb, self.gapOpenProb, 1 - 2*self.gapOpenProb]) 
 		self.transMatrix.append([1-settings.EPSILON, settings.EPSILON, 0, 0])
-		self.transMatrix.append([1-settings.EPSILON, settings.EPSILON, 0, 0])
+		self.transMatrix.append([1-settings.EPSILON, 0, settings.EPSILON, 0])
 		self.transMatrix.append([1, 0, 0, 0])
 		#print "waiting state out prob:"
 		#print self.wState.outFreq
@@ -475,7 +473,7 @@ class pHMM:
 		return self.optimalAlignment(seq, s, pointerMatrix)
 
 	def setStateDistribution(self):
-		np.savetxt('./data/input', np.array(self.transMatrix))
+		np.savetxt('input', np.array(self.transMatrix))
 		os.system("./stateDistribution.o>./data/result;")
 		rf = open('./data/result', 'r')
 		s = rf.read()
@@ -483,12 +481,7 @@ class pHMM:
 		self.stateDistr = [float(i) for i in s.strip('\n').split()]
 
 	def getExpectedInDel(self):
-		#print "transition matrix w x y m(t:%.4f):"%(settings.TIME)
-		#print self.transMatrix
 		self.setStateDistribution()
-		#print "state distribution:"
-		#print self.stateDistr
-
 		wStateNum = settings.LENGTH / (sum(self.stateDistr[1:])) * self.stateDistr[0]
 		return (wStateNum * sum(self.transMatrix[0][1:3]))
 
