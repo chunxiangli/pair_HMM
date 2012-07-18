@@ -12,6 +12,7 @@ from model import *
 from utils.myprint import *
 from utils.tools import *
 from utils.myplot import *
+from multiprocessing import Pool
 import numpy as np
 from matplotlib import pyplot
 #from scipy import stats
@@ -184,6 +185,18 @@ def alignment(inFile, outFile, t=0):
 	observedP = pair_hmm.observedDif
 	return (observedP, accuracy)
 
+def alignmentOverSpecificDistance(t):
+        f1 = open(settings.IN_FILE, 'r')
+        settings.TIME = t
+        f2 = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
+        accArr = []
+        for i in range(settings.REPLICATE):
+                (a, b) = alignment(f1, f2, 1)
+                accArr.append(b)
+        f2.close()
+        f1.close()
+        return np.array(accArr).mean()
+
 def pairSimulationAndAlignment(plot=True):
 	P = []
 	t = [ 0.05+i*0.01 for i in range(36)]
@@ -191,7 +204,11 @@ def pairSimulationAndAlignment(plot=True):
 	realTime = 0
 	try:
 		realTime = replicateSimulation(settings.IN_FILE)
-
+		
+		pool = Pool(8)
+		accuracy = pool.map(alignmentOverSpecificDistance, t)
+		
+		'''
 		f1 = open(settings.IN_FILE, 'r')
 		for j in t:
 			settings.TIME = j
@@ -205,9 +222,10 @@ def pairSimulationAndAlignment(plot=True):
 			accuracy.append(np.array(accArr).mean())
 			f2.close()
 		f1.close()
+		'''
 		if plot:
 			fName = "realignment_t0.05:0.4_a%.3f_e%.3f_len%d_rep%d.png"%(settings.INDEL, settings.EPSILON, settings.LENGTH, settings.REPLICATE)
-			title = "Alignment(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+			title = "Alignment(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
 			plotAlignmentResult(t, [accuracy], realTime ,fName, title)
 
 	except IOError as e:
@@ -222,41 +240,42 @@ def replicateSimulation(outFile, plot=True):
 
 def checkAlignmentParameters():
 	indel = settings.INDEL
-	t = replicateSimulation(settings.IN_FILE, False)
+	realTime = replicateSimulation(settings.IN_FILE, False)
 	
 	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
 	tArr = [0.05 + i * 0.01 for i in range(36)]
 	accuracy = []
 
-	iF = open(settings.IN_FILE, 'r')
-	for i in range(9):
-		settings.INDEL = 0.02 + i * 0.01
-		accArr = []
-		for j in range(36):
+	for i in indelArr:
+		settings.INDEL = i
+		pool = Pool(8)
+		accArr = pool.map(alignmentOverSpecificDistance, tArr)
+		'''
+		for j in tArr:
+			iF = open(settings.IN_FILE, 'r')
 			ofName = re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE)
 			#of = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
 			of = open(ofName, 'w')
-			settings.TIME = 0.05 + j * 0.01
+			settings.TIME = j
 			acc = []
 			for k in range(settings.REPLICATE):
 				(a, b) = alignment(iF, of, 1)
 				acc.append(b)
 			of.close()
-			iF.seek(0)
+			iF.close()
 			accArr.append(np.array(acc).mean())
+		'''
 		accuracy.append(accArr)
-
-	fName = "alignmentOverVariantParameters_generate(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d).png"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH)
-	title = "Alignment(t=%.3f, a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(t, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
-	plotAlignmentResult(tArr, accuracy, t ,fName, title, indelArr)
-		
-	iF.close()
+	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
+	fName = "alignmentOverVariantParameters_generate%s.png"%(tmpS)
+	title = "Alignment%s"%(tmpS)
+	plotAlignmentResult(tArr, accuracy, realTime ,fName, title, indelArr)
 
 def runIndelible(start, step, times, subRate, length):
 	observedDif = []
 	os.system("./runIndelible %f %f %d %f %d>>log.txt"%(start, step, times, subRate, length))
 	for i in range(times):
-		iF = "/home/czli/Downloads/INDELibleV1.03/data/output%.3f.fas"%((start + i*step)/2)
+		iF = "%s/output%.3f.fas"%(settings.InDelibaleDataDir, (start + i*step)/2)
 		inFile = open(iF, 'r')
 		s = inFile.readline()
 		sequences = []
@@ -445,7 +464,6 @@ def checkIndelEffect():
                 settings.INDEL = 0.02 + a * 0.01
 		indelArr.append(settings.INDEL)
                 settings.IN_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),iFile)
-                settings.OUT_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),oFile)
                 result = pairSimulationAndAlignment(False)
 		accArr.append(result[1])
 		t = result[0]
