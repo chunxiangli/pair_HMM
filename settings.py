@@ -58,6 +58,7 @@ OUT_FILE = ROOT + "/data/realign.fas"
 # input file name
 IN_FILE = ROOT + "/data/example.fas"
 
+IndelibleDataDir = "/home/czli/Downloads/INDELibleV1.03/data"
 
 # the line length in fasta format
 FASTA_LINE_LENGTH = 80
