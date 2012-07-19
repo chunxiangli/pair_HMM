@@ -233,7 +233,7 @@ def pairSimulationAndAlignment(plot=False):
         	f1.close()
 		if plot and settings.REPLICATE > 3:
                         fName = "pairAlignment_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
-                        title = "Alignment%s(a=%.2f,e=%.2f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
+                        title = "Alignment(a=%.2f,e=%.2f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
                         plotAlignmentResult(np.arange(settings.REPLICATE), [accArr], settings.TIME, fName, title)
 	except IOError as e:
 		print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
