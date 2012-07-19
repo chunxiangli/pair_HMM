@@ -61,7 +61,7 @@ def plotAlignmentResult(t, accuracy,realTime, fileName, title, indel=None):
 	pyplot.title(title)
         pyplot.xlabel("distance")
         pyplot.ylabel("accuracy")
-        pyplot.xlim(0.05, 0.4)
+        pyplot.xlim(t[0], t[len(t)-1])
         pyplot.ylim(np.array(accuracy).min()-0.01, 1)
 	'''
         pyplot.ylim(np.array(accuracy).min()-0.1, 1)

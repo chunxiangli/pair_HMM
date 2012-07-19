@@ -107,6 +107,7 @@ def pairSimulation(outFile, plot=True):
 		(right, t2) = findTaxaAndLength(settings.TREE[len(left)+len(t1)+2:])
 		t1 = float(t1)
 		t2 = float(t2)
+		settings.TIME = t1 + t2
 	pair_hmm = pHMM(t1, t2, left, right)
 	
 	p = []
@@ -125,14 +126,12 @@ def pairSimulation(outFile, plot=True):
 	if plot and settings.REPLICATE > 2:
 		eInDel = pair_hmm.getExpectedInDel()
 		eMatch = pair_hmm.getExpectedMatch()
-		fName = "estimate_distance.len%d_a%.2f_e%.2f_rep%d.png"%(settings.LENGTH, settings.INDEL, settings.EPSILON, settings.REPLICATE)
+		fName = "estimateDistance_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 		xlabel = "Replicate Sequence"
 		title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
         	plotSimulationResult(np.arange(settings.REPLICATE), t1+t2, d2t(p2d(np.array(p))), None, eInDel, np.array(indelArr), eMatch, np.array(matchArr), xlabel, fName, title)
-	
-	return (t1 + t2)
 
-def alignment(inFile, outFile, t=0):
+def pairAlignment(inFile, outFile, t=0):
 	sequences = []
 	alignment = []
 
@@ -185,62 +184,72 @@ def alignment(inFile, outFile, t=0):
 	observedP = pair_hmm.observedDif
 	return (observedP, accuracy)
 
-def alignmentOverSpecificDistance(t):
+def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
-        f2 = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
+        f2 = open("%s/data/alignment_over_%s"%(re.sub(settings.ROOT, r'\.fas$', '_with_a%.3f_and_t%.3f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
         accArr = []
         for i in range(settings.REPLICATE):
-                (a, b) = alignment(f1, f2, 1)
+                (a, b) = pairAlignment(f1, f2, 1)
                 accArr.append(b)
         f2.close()
         f1.close()
         return np.array(accArr).mean()
 
-def pairSimulationAndAlignment(plot=True):
+def simulationAndAlignmentWithVariantDistance(plot=False):
 	P = []
 	t = [ 0.05+i*0.01 for i in range(36)]
 	accuracy = []
 	realTime = 0
 	try:
-		realTime = replicateSimulation(settings.IN_FILE)
+		replicateSimulation(settings.IN_FILE, False)
+		indel = settings.INDEL
+		realTime = settings.TIME
 		
 		pool = Pool(8)
-		accuracy = pool.map(alignmentOverSpecificDistance, t)
+		accuracy = pool.map(alignmentWithSpecificDistance, t)
 		
-		'''
-		f1 = open(settings.IN_FILE, 'r')
-		for j in t:
-			settings.TIME = j
-			f2 = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
-			accArr = []	
-			for i in range(settings.REPLICATE):
-				(a, b) = alignment(f1, f2, 1)
-				#P.append(a)
-				accArr.append(b)
-			f1.seek(0)
-			accuracy.append(np.array(accArr).mean())
-			f2.close()
-		f1.close()
-		'''
 		if plot:
-			fName = "realignment_t0.05:0.4_a%.3f_e%.3f_len%d_rep%d.png"%(settings.INDEL, settings.EPSILON, settings.LENGTH, settings.REPLICATE)
-			title = "Alignment(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
+			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.REPLICATE)
+			fName = "alignmentWithVariantDistance_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
+			title = "Alignment%s"%(tmpS)
 			plotAlignmentResult(t, [accuracy], realTime ,fName, title)
 
 	except IOError as e:
         	print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
+		sys.exit(0)
 	return (t, accuracy, realTime)
+
+def pairSimulationAndAlignment(plot=False):
+	try:
+		replicateSimulation(settings.IN_FILE)
+		f1 = open(settings.IN_FILE, 'r')
+        	f2 = open("%s/data/alignment_over_%s"%(settings.ROOT, os.path.basename(settings.IN_FILE)), 'w')
+        	accArr = []
+        	for i in range(settings.REPLICATE):
+                	(a, b) = pairAlignment(f1, f2)
+                	accArr.append(b)
+        	f2.close()
+        	f1.close()
+		if plot and settings.REPLICATE > 3:
+                        fName = "pairAlignment_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
+                        title = "Alignment%s(a=%.2f,e=%.2f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
+                        plotAlignmentResult(np.arange(settings.REPLICATE), [accArr], settings.TIME, fName, title)
+	except IOError as e:
+		print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
+                sys.exit(0)
+
+	return (accArr)
 
 def replicateSimulation(outFile, plot=True):
 	of = open(outFile, 'w')
-	realTime = pairSimulation(of, plot)
+	pairSimulation(of, plot)
 	of.close()	
-	return realTime
 
 def checkAlignmentParameters():
 	indel = settings.INDEL
-	realTime = replicateSimulation(settings.IN_FILE, False)
+	replicateSimulation(settings.IN_FILE, False)
+	realTime = settings.TIME
 	
 	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
 	tArr = [0.05 + i * 0.01 for i in range(36)]
@@ -249,25 +258,9 @@ def checkAlignmentParameters():
 	for i in indelArr:
 		settings.INDEL = i
 		pool = Pool(8)
-		accArr = pool.map(alignmentOverSpecificDistance, tArr)
-		'''
-		for j in tArr:
-			iF = open(settings.IN_FILE, 'r')
-			ofName = re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE)
-			#of = open(re.sub(r'\.fas$', 'a%.3f_t%.3f.fas'%(settings.INDEL, settings.TIME), settings.OUT_FILE),'w')
-			of = open(ofName, 'w')
-			settings.TIME = j
-			acc = []
-			for k in range(settings.REPLICATE):
-				(a, b) = alignment(iF, of, 1)
-				acc.append(b)
-			of.close()
-			iF.close()
-			accArr.append(np.array(acc).mean())
-		'''
-		accuracy.append(accArr)
+		accuracy.append(pool.map(alignmentWithSpecificDistance, tArr))
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
-	fName = "alignmentOverVariantParameters_generate%s.png"%(tmpS)
+	fName = "alignmentOverVariantParameters_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 	title = "Alignment%s"%(tmpS)
 	plotAlignmentResult(tArr, accuracy, realTime ,fName, title, indelArr)
 
@@ -383,7 +376,6 @@ def checkAccuracySimulation():
 		#phylosimDif = runPhylosim(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
       		
 		if 1 != settings.ITERATE:
-			#print d
 			t = np.array(t)
 			oDReal = np.array(d)
 			oTReal = d2t(oDReal)
@@ -392,7 +384,7 @@ def checkAccuracySimulation():
 			#oPhylosimDif = d2t(p2d(np.array(phylosimDif)))
 			#s = stats.linregress(t, oTReal)
 			#lTReal = s[0]*t+s[1]
-			fName = "estimate_distance.len%d_a%.2f_e%.2f_iter%d.png"%(settings.LENGTH, settings.INDEL, settings.EPSILON, settings.ITERATE)
+			fName = "estimate_distance_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 			xlabel = "Simulated Time Distance"
 			title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
 			plotSimulationResult(t, t, oTReal, oIndelibleDif, np.array(eInDel), oInDel, np.array(eMatch), np.array(match), xlabel, fName, title)
@@ -452,22 +444,21 @@ def treeSimulation(outFile, seq=None):
 
 def checkIndelEffect():
 	iFile = settings.IN_FILE
-        oFile = settings.OUT_FILE
 
-	indelArr = []
+	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
 	accArr = []
 	realTime = settings.TIME
+	realIndel = settings.INDEL
 	t = []
-        for a in range(9):
+        for a in indelArr:
         	print "a=%d"%(a)
                 start = time.clock()
-                settings.INDEL = 0.02 + a * 0.01
-		indelArr.append(settings.INDEL)
+                settings.INDEL = a
                 settings.IN_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),iFile)
-                result = pairSimulationAndAlignment(False)
+                result = simulationAndAlignmentWithVariantDistance()
 		accArr.append(result[1])
 		t = result[0]
-	fName = "alignmentOverVariantIndelRate_t%.3f_e%.3f_l%.3f_g%.3f_len%d.png"%(realTime, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH)
+	fName = "alignmentOverVariantIndelRateGenerated_t%.2f_a%.2f_e%.2f_l%.2f_g%.2f_len%d_rep%d.png"%(realTime, realIndel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
 	title = "Alignment Result with variant distance parameters"
 	plotAlignmentResult(t, accArr, realTime, fName, title, indelArr)
 
@@ -484,7 +475,7 @@ def main(argv):
 	elif None == settings.TREE:
 		checkAccuracySimulation()
 	elif len(re.findall('\(',settings.TREE)) < 2:
-		pairSimulationAndAlignment()
+		pairSimulationAndAlignment(True)
 	else:
 		try:	
 			outFile = open(settings.IN_FILE, 'w')
