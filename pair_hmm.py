@@ -189,8 +189,7 @@ def pairAlignment(inFile, outFile, t=0):
 def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
-	print t
-        f2 = open("%s/data/alignment_over_%s"%(re.sub(settings.ROOT, r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
+        f2 = open("%s/data/alignment_over_%s"%(settings.ROOT, re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
         accArr = []
         for i in range(settings.REPLICATE):
                 (a, b) = pairAlignment(f1, f2, 1)
@@ -210,7 +209,7 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		realTime = settings.TIME
 		
 		pool = Pool(cpuNum)
-		accuracy = pool.map(alignmentWithSpecificDistance, t, cpuNum)
+		accuracy = pool.map(alignmentWithSpecificDistance, t, len(t)/cpuNum)
 		#pool.close()
 		#pool.join()
 		
