@@ -20,6 +20,8 @@ from matplotlib import pyplot
 
 
 cpuNum  = multiprocessing.cpu_count()
+sequencesBlock = []
+resetDistance = False
 def printHelp(argv):
 	print '''
 	Usage: %s [args]
@@ -54,6 +56,12 @@ def validateArgv(argv):
 			print "Argument \'%s\' in wrong format. Use \'key=value\'." % (arg[0])
 			print "For more instructions try \'%s help\'" % (argv[0])
 			sys.exit(0)	
+def poolMap(task, param, cpuNum, chuckSize=1):
+	pool = Pool(cpuNum)
+	result = pool.map(task, param, chuckSize)
+	pool.join()
+	pool.close()
+	return result
 
 def fidelity(real, path):
 	rNum = 0
@@ -133,68 +141,73 @@ def pairSimulation(outFile, plot=True):
 		title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
         	plotSimulationResult(np.arange(settings.REPLICATE), t1+t2, d2t(p2d(np.array(p))), None, eInDel, np.array(indelArr), eMatch, np.array(matchArr), xlabel, fName, title)
 
-def pairAlignment(inFile, outFile, t=0):
-	sequences = []
-	alignment = []
-
-	s = inFile.readline()
-	for i in range(2):
-		while '' != s and '>' != s[0]: s = inFile.readline()
-		if '' == s:
-			print "There isn\'t sequence in the fasta file %s."%(settings.IN_FILE)
-			inFile.close()
-			sys.exit(0)
-		name = s[1:].split('|')[0]
-		seq = ''
+def readPairSequences(inFile, num=1):
+	pairArr = []
+	for i in range(num): 
 		s = inFile.readline()
-		while '' != s and '>' != s[0]: 
-			seq += s
+		sequences = []
+		for j in range(2):
+			while '' != s and '>' != s[0]: s=inFile.readline()
+			if '' == s:
+				print "There isn\'t sequence in the fasta file %s."%(settings.IN_FILE)
+				inFile.close()
+				sys.exit(0)
+			name = s[1:].split('|')[0]
+			seq = ''
 			s = inFile.readline()
-		if '' == s and '' == seq:
-			print "There is only one sequence in the fasta file %s."%(settings.IN_FILE) 
-			inFile.close()
-			sys.exit()
-		sequences.append(seqDNA(name, re.sub(r'\n', '', seq)))
-	inFile.seek(inFile.tell() - len(s))
-	if 0 == t:
-		t1 = float(re.search(':(\d+\.?\d+)\|?', sequences[0].name).group(1).strip())
-		t2 = float(re.search(':(\d+\.?\d+)\|?', sequences[1].name).group(1).strip())
-	else:
-		t1 = settings.TIME / 2
-		t2 = settings.TIME / 2
+			while '' != s and '>' != s[0]:
+				seq += s
+				s = inFile.readline()
+			if '' == s and '' == seq:
+				print "There isn\'t sequence in the fasta file %s."%(settings.IN_FILE)
+				inFile.close()
+				sys.exit(0)
+			sequences.append(seqDNA(name, re.sub(r'\n', '', seq)))
+		inFile.seek(inFile.tell() - len(s))
+		pairArr.append(sequences)
+	return pairArr
 
+def pairAlignmentWithSpecificParameters(index):
+	sequences = sequencesBlock[index]
+	t1 = settings.TIME/2
+	t2 = settings.TIME/2
+	if not resetDistance:
+		t1 = float(re.search(':(\d+\.?\d+)\|?', sequences[0].name).group(1).strip())
+		t2 = float(re.search(':(\d+\.?\d+)\|?', sequences[1].name).group(1).strip()) 
 	pair_hmm = pHMM(t1, t2)
 	alignment = copy.deepcopy(sequences)
-	#printPairAlign([alignment[0].seq, alignment[1].seq])
-	for c in alignment:
-		c.removeGap()
-
-	alignment[0],alignment[1] = pair_hmm.alignSeq(alignment)
-	#printPairAlign([alignment[0].seq, alignment[1].seq])
-	printFastaFile(alignment, outFile)
+	for c in alignment: c.removeGap()
+	alignment = pair_hmm.alignSeq(alignment)	
 	accuracy = fidelity(sequences, alignment)
-	for i in range(2):
-		sequences[i].removeGap()
-		alignment[i].removeGap()
-		a1 =''.join(sequences[i].seq)
-		a = ''.join(alignment[i].seq)
-		if a1 != a:
-			print '%s\n%s'%(a1,a) 
+	return [accuracy, alignment]
 
-	observedP = pair_hmm.observedDif
-	return (observedP, accuracy)
+def realignment(inFile, outFile, reset=False):
+	resetDistance = reset
+	blockNum = settings.REPLICATE / cpuNum
+	results = []
+	alignments = []
+	for b in range(blockNum):
+		sequencesBlock = readPairSequences(inFile, cpuNum)
+		results += poolMap(pairAlignmentWithSpecificParameters, range(cpuNum), cpuNum)
 
+	leftSeq = sesttings.REPLICATE % cpuNum
+	sequencesBlock = readPairSequences(inFile, leftSeq)
+	results += poolMap(pairAlignmentWithSpecificParameters, range(leftSeq), leftSeq)
+	sequencesBlock = []
+
+	results = np.array(results)
+	printFastaFile(results[:,1], outFile)
+	return results[:,0]
+	
+	
 def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
         f2 = open("%s/data/alignment_over_%s"%(settings.ROOT, re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
-        accArr = []
-        for i in range(settings.REPLICATE):
-                (a, b) = pairAlignment(f1, f2, 1)
-                accArr.append(b)
+        accArr = realignment(inFile, outFile, True)
         f2.close()
         f1.close()
-        return np.array(accArr).mean()
+        return accArr.mean()
 
 def simulationAndAlignmentWithVariantDistance(plot=False):
 	P = []
@@ -206,14 +219,11 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		indel = settings.INDEL
 		realTime = settings.TIME
 		
-		pool = Pool(cpuNum)
 		cSize = len(t)/cpuNum
                 if cSize*cpuNum < len(t):
                         cSize += 1
 
-		accuracy = pool.map(alignmentWithSpecificDistance, t, cSize)
-		pool.close()
-		pool.join()
+		accuracy = poolMap(alignmentWithSpecificDistance, t, cSize, cpuNum)
 		
 		if plot:
 			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.REPLICATE)
@@ -231,10 +241,7 @@ def pairSimulationAndAlignment(plot=False):
 		replicateSimulation(settings.IN_FILE)
 		f1 = open(settings.IN_FILE, 'r')
         	f2 = open("%s/data/alignment_over_%s"%(settings.ROOT, os.path.basename(settings.IN_FILE)), 'w')
-        	accArr = []
-        	for i in range(settings.REPLICATE):
-                	(a, b) = pairAlignment(f1, f2)
-                	accArr.append(b)
+        	accArr = realignment(f1, f2)
         	f2.close()
         	f1.close()
 		if plot and settings.REPLICATE > 3:
