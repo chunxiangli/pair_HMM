@@ -389,7 +389,7 @@ class pHMM:
 		alignedX.site = alignedX.site[::-1]
 		alignedY.site = alignedY.site[::-1]
 
-		return (alignedX, alignedY)
+		return [alignedX, alignedY]
 					
 
 			
