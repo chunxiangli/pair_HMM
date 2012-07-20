@@ -169,9 +169,7 @@ def pairAlignment(inFile, outFile, t=0):
 	for c in alignment:
 		c.removeGap()
 
-	start = time.clock()
 	alignment[0],alignment[1] = pair_hmm.alignSeq(alignment)
-	end = time.clock()
 	#printPairAlign([alignment[0].seq, alignment[1].seq])
 	printFastaFile(alignment, outFile)
 	accuracy = fidelity(sequences, alignment)
@@ -209,9 +207,13 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		realTime = settings.TIME
 		
 		pool = Pool(cpuNum)
-		accuracy = pool.map(alignmentWithSpecificDistance, t, len(t)/cpuNum)
-		#pool.close()
-		#pool.join()
+		cSize = len(t)/cpuNum
+                if cSize*cpuNum < len(t):
+                        cSize += 1
+
+		accuracy = pool.map(alignmentWithSpecificDistance, t, cSize)
+		pool.close()
+		pool.join()
 		
 		if plot:
 			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.REPLICATE)
@@ -256,16 +258,20 @@ def checkAlignmentParameters():
 	realTime = settings.TIME
 	
 	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
-	tArr = [0.05 + i * 0.01 for i in range(16)]
+	tArr = [0.05 + i * 0.01 for i in range(36)]
 	accuracy = []
-
+	start = time.time()
 	for i in indelArr:
 		settings.INDEL = i
 		pool = Pool(cpuNum)
-		acc = pool.map(alignmentWithSpecificDistance, tArr)
+		cSize = len(tArr)/cpuNum
+		if cSize*cpuNum < len(tArr):
+			cSize += 1
+		acc = pool.map(alignmentWithSpecificDistance, tArr, cSize)
 		pool.close()
 		pool.join()
 		accuracy.append(acc)
+	print "time using:%.3gs"%(time.time()-start)
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
 	fName = "alignmentOverVariantParameters_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 	title = "Alignment%s"%(tmpS)
