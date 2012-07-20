@@ -7,6 +7,7 @@ import random
 import copy
 import math
 import time
+import multiprocessing
 from input import *
 from model import *
 from utils.myprint import *
@@ -18,6 +19,7 @@ from matplotlib import pyplot
 #from scipy import stats
 
 
+cpuNum  = multiprocessing.cpu_count()
 def printHelp(argv):
 	print '''
 	Usage: %s [args]
@@ -187,7 +189,8 @@ def pairAlignment(inFile, outFile, t=0):
 def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
-        f2 = open("%s/data/alignment_over_%s"%(re.sub(settings.ROOT, r'\.fas$', '_with_a%.3f_and_t%.3f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
+	print t
+        f2 = open("%s/data/alignment_over_%s"%(re.sub(settings.ROOT, r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
         accArr = []
         for i in range(settings.REPLICATE):
                 (a, b) = pairAlignment(f1, f2, 1)
@@ -206,8 +209,10 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		indel = settings.INDEL
 		realTime = settings.TIME
 		
-		pool = Pool(8)
-		accuracy = pool.map(alignmentWithSpecificDistance, t)
+		pool = Pool(cpuNum)
+		accuracy = pool.map(alignmentWithSpecificDistance, t, cpuNum)
+		#pool.close()
+		#pool.join()
 		
 		if plot:
 			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.REPLICATE)
@@ -252,13 +257,16 @@ def checkAlignmentParameters():
 	realTime = settings.TIME
 	
 	indelArr = [ 0.02 + i * 0.01 for i in range(9)]
-	tArr = [0.05 + i * 0.01 for i in range(36)]
+	tArr = [0.05 + i * 0.01 for i in range(16)]
 	accuracy = []
 
 	for i in indelArr:
 		settings.INDEL = i
-		pool = Pool(8)
-		accuracy.append(pool.map(alignmentWithSpecificDistance, tArr))
+		pool = Pool(cpuNum)
+		acc = pool.map(alignmentWithSpecificDistance, tArr)
+		pool.close()
+		pool.join()
+		accuracy.append(acc)
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
 	fName = "alignmentOverVariantParameters_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 	title = "Alignment%s"%(tmpS)
@@ -451,7 +459,6 @@ def checkIndelEffect():
 	realIndel = settings.INDEL
 	t = []
         for a in indelArr:
-        	print "a=%d"%(a)
                 start = time.clock()
                 settings.INDEL = a
                 settings.IN_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),iFile)
