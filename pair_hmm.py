@@ -14,6 +14,8 @@ from utils.myprint import *
 from utils.tools import *
 from utils.myplot import *
 from multiprocessing import Pool
+from Bio import SeqIO
+import multiprocessing as mp
 import numpy as np
 from matplotlib import pyplot
 #from scipy import stats
@@ -59,8 +61,8 @@ def validateArgv(argv):
 def poolMap(task, param, cpuNum, chuckSize=1):
 	pool = Pool(cpuNum)
 	result = pool.map(task, param, chuckSize)
-	pool.join()
 	pool.close()
+	pool.join()
 	return result
 
 def fidelity(real, path):
@@ -140,7 +142,7 @@ def pairSimulation(outFile, plot=True):
 		xlabel = "Replicate Sequence"
 		title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
         	plotSimulationResult(np.arange(settings.REPLICATE), t1+t2, d2t(p2d(np.array(p))), None, eInDel, np.array(indelArr), eMatch, np.array(matchArr), xlabel, fName, title)
-
+'''
 def readPairSequences(inFile, num=1):
 	pairArr = []
 	for i in range(num): 
@@ -164,11 +166,21 @@ def readPairSequences(inFile, num=1):
 				sys.exit(0)
 			sequences.append(seqDNA(name, re.sub(r'\n', '', seq)))
 		inFile.seek(inFile.tell() - len(s))
-		pairArr.append(sequences)
+		pairArr.append(sequences[:])
 	return pairArr
-
-def pairAlignmentWithSpecificParameters(index):
-	sequences = sequencesBlock[index]
+'''
+def readPairSequences(inFile, num=1):
+	pairArr = []
+	sequences = []
+	for s in SeqIO.parse(inFile, "fasta"):
+		if len(pairArr) < num:
+			sequences.append(seqDNA(s.id, s.seq.data))
+			if 2 == len(sequences):
+				pairArr.append(sequences[:])
+				sequences = []
+	return pairArr
+			
+def pairAlignmentWithSpecificParameters(sequences):
 	t1 = settings.TIME/2
 	t2 = settings.TIME/2
 	if not resetDistance:
@@ -181,30 +193,26 @@ def pairAlignmentWithSpecificParameters(index):
 	accuracy = fidelity(sequences, alignment)
 	return [accuracy, alignment]
 
+def chunkSize(size):
+	cSize = size / cpuNum
+	if cSize * cpuNum < size:
+		cSize += 1
+	return cSize
+
 def realignment(inFile, outFile, reset=False):
 	resetDistance = reset
-	blockNum = settings.REPLICATE / cpuNum
-	results = []
-	alignments = []
-	for b in range(blockNum):
-		sequencesBlock = readPairSequences(inFile, cpuNum)
-		results += poolMap(pairAlignmentWithSpecificParameters, range(cpuNum), cpuNum)
-
-	leftSeq = sesttings.REPLICATE % cpuNum
-	sequencesBlock = readPairSequences(inFile, leftSeq)
-	results += poolMap(pairAlignmentWithSpecificParameters, range(leftSeq), leftSeq)
-	sequencesBlock = []
-
+	sequences= readPairSequences(inFile, settings.REPLICATE)
+	results = poolMap(pairAlignmentWithSpecificParameters, sequences, chunkSize(settings.REPLICATE))
 	results = np.array(results)
-	printFastaFile(results[:,1], outFile)
+	printFastaFile(results[:,1][0], outFile)
 	return results[:,0]
 	
 	
 def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
-        f2 = open("%s/data/alignment_over_%s"%(settings.ROOT, re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
-        accArr = realignment(inFile, outFile, True)
+        f2 = open("%s/alignment_over_%s"%(os.path.dirname(settings.IN_FILE), re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
+        accArr = realignment(f1, f2, True)
         f2.close()
         f1.close()
         return accArr.mean()
@@ -218,15 +226,20 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		replicateSimulation(settings.IN_FILE, False)
 		indel = settings.INDEL
 		realTime = settings.TIME
-		
+		'''	
 		cSize = len(t)/cpuNum
                 if cSize*cpuNum < len(t):
                         cSize += 1
 
 		accuracy = poolMap(alignmentWithSpecificDistance, t, cSize, cpuNum)
+		'''
+		start = time.time()
+		for i in t:
+			accuracy.append(alignmentWithSpecificDistance(i))
+		print "time using:%.2gs"%(time.time() - start)
 		
 		if plot:
-			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.REPLICATE)
+			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
 			fName = "alignmentWithVariantDistance_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 			title = "Alignment%s"%(tmpS)
 			plotAlignmentResult(t, [accuracy], realTime ,fName, title)
@@ -234,13 +247,13 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 	except IOError as e:
         	print 'I/0 error{0}:{1}'.format(e.errno, e.strerror)
 		sys.exit(0)
-	return (t, accuracy, realTime)
+	return accuracy
 
 def pairSimulationAndAlignment(plot=False):
 	try:
 		replicateSimulation(settings.IN_FILE)
 		f1 = open(settings.IN_FILE, 'r')
-        	f2 = open("%s/data/alignment_over_%s"%(settings.ROOT, os.path.basename(settings.IN_FILE)), 'w')
+        	f2 = open("%s/alignment_over_%s"%(os.path.dirname(settings.IN_FILE), os.path.basename(settings.IN_FILE)), 'w')
         	accArr = realignment(f1, f2)
         	f2.close()
         	f1.close()
@@ -269,15 +282,14 @@ def checkAlignmentParameters():
 	accuracy = []
 	start = time.time()
 	for i in indelArr:
+		print i
 		settings.INDEL = i
 		pool = Pool(cpuNum)
-		cSize = len(tArr)/cpuNum
-		if cSize*cpuNum < len(tArr):
-			cSize += 1
-		acc = pool.map(alignmentWithSpecificDistance, tArr, cSize)
+		pArr = [[0.05 + i*0.01, settings.IN_FILE] for i in range(36)]
+		acc = pool.map(alignmentWithSpecificDistance, pArr, chunkSize(len(pArr)))
 		pool.close()
 		pool.join()
-		accuracy.append(acc)
+		accuracy.append(acc[:])
 	print "time using:%.3gs"%(time.time()-start)
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
 	fName = "alignmentOverVariantParameters_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
@@ -469,14 +481,13 @@ def checkIndelEffect():
 	accArr = []
 	realTime = settings.TIME
 	realIndel = settings.INDEL
-	t = []
+	t = [ 0.05 + i*0.01 for i in range(36)]
         for a in indelArr:
                 start = time.clock()
                 settings.INDEL = a
                 settings.IN_FILE = re.sub(r'\.fas$', '_a%.3f.fas'%(settings.INDEL),iFile)
                 result = simulationAndAlignmentWithVariantDistance()
-		accArr.append(result[1])
-		t = result[0]
+		accArr.append(result[:])
 	fName = "alignmentOverVariantIndelRateGenerated_t%.2f_a%.2f_e%.2f_l%.2f_g%.2f_len%d_rep%d.png"%(realTime, realIndel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
 	title = "Alignment Result with variant distance parameters"
 	plotAlignmentResult(t, accArr, realTime, fName, title, indelArr)
@@ -489,8 +500,10 @@ def main(argv):
 	readArgv(argv)
 	if settings.PCHECK:
 		checkAlignmentParameters()
-	elif False != settings.ACHECK:
+	elif settings.ACHECK:
 		checkIndelEffect()
+	elif settings.TCHECK:
+		simulationAndAlignmentWithVariantDistance(True)
 	elif None == settings.TREE:
 		checkAccuracySimulation()
 	elif len(re.findall('\(',settings.TREE)) < 2:
