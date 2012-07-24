@@ -32,7 +32,8 @@ def readArgv(argv):
 	boolArguments = {
 		'acheck': 'ACHECK',
 		'pcheck': 'PCHECK',
-		'tcheck': 'TCHECK' }
+		'tcheck': 'TCHECK',
+		'alignment': 'ALIGNMENT'}
 
 	for x in range(1, len(argv)):
 		key, value = argv[x].split("=",2)
