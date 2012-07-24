@@ -1,20 +1,28 @@
-import os, sys, random, commands, Queue, time, optparse
+#!/usr/bin/python
+import os
+import sys
+import random
+import commands
+import Queue
+import time
+import optparse
 from pair_hmm import *
 from threading import ThreadError
 from threading import Thread
-from get_free_nodes import get_free_nodes
+from get_free_nodes import get_free_nodes 
 
 # parse command lien arguments
 parser = optparse.OptionParser(version = "%prog 1.1 on 23.07.2012 by Chunxiang Li", description = "python script for multiple thread pair-wise alignment")
-parser.add_option("-i", "in", dest="ifname", default="example.fas", help="result file name for simulation, and input file name for alignment at the same time")
-parser.add.option("-a","a", dest="indel", default="0.1", help="indel rate for insertion and deletion events")
-parser.add.option("-e", "e", dest="extension", default="0.4", help="gap extension probability")
-parser.add.option("-l", "l", dest="lambda", default="1", help="substitution rate per unit time")
-parser.add.option("-g", "g", dest="gamma", default="0", help="gap extension probability")
-parser.add.option("-len", "len", dest="length", default="100", help="result alignment length")
-parser.add.option("-rep", "rep", dest="rep", default="10", help="replicate num")
-parser.add.option("-t", "t", dest="time", default="0.2", help="time distance between generated sequences")
-parser.add.option("-tree", "tree", dest="tree", default="(A:0.1,B:0.1)", help="replicate num")
+parser.add_option("-i", "--in", dest="ifname", default="example.fas", help="result file name for simulation, and input file name for alignment at the same time")
+parser.add_option("-a","--a", dest="indel", default="0.1", help="indel rate for insertion and deletion events")
+parser.add_option("-e", "--e", dest="extension", default="0.4", help="gap extension probability")
+parser.add_option("-l", "--l", dest="Lambda", default="1", help="substitution rate per unit time")
+parser.add_option("-g", "--g", dest="gamma", default="0", help="gap extension probability")
+parser.add_option("-s", "--slen", dest="length", default="100", help="result alignment length")
+parser.add_option("-r", "--rep", dest="rep", default="10", help="replicate num")
+parser.add_option("-t", "--t", dest="time", default="0.2", help="time distance between generated sequences")
+parser.add_option("-d", "--dtree", dest="tree", default="(A:0.1,B:0.1)", help="replicate num")
+(options, arguments) = parser.parse_args()
 #global parameters
 workingDir = os.getcwd()
 job_queue = Queue.Queue()
@@ -22,13 +30,13 @@ class Worker(Thread):
 	def __init__(self, job_queue, node):
 		Thread.__init__(self)
 		self.job_queue = job_queue
-		self,node = node
+		self.node = node
 	def run(self):
 		all_done = 0
 		while not all_done:
 			try:
 				job = self.job_queue.get(0)
-				time.sleep(random.randint(5000,6000)/1000.0))
+				time.sleep(random.randint(5000,6000)/1000.0)
 				single_thread(self.node, job)
 			except Queue.Empty:
 				all_done = 1
@@ -43,12 +51,12 @@ def single_thread(node, job):
 		os.system("echo '%.4f' >> %s/result_for_%s_with_t%.2f"%(accuracy, os.path.splitext(options.ifname)[0], dataDir, t))
 	except:
 		job_queue.put((job))
-	time.sleep(random.randint(1000, 5000)/1000.00))
+	time.sleep(random.randint(1000, 5000)/1000.00)
 	pass
 
 def simulationAndRealignment(max_thread=1,load=1):
 	#simulation
-	os.system("./%s/pair_hmm.py len=%s t=%s a=%s e=%s g=%s l=%s rep=%s tree=%s in=%s >> %s"%(workdingDir, options.length, options.time, options.indel, options.extension, options.gamma, options.Lambda, options.rep, options.tree, options.ifname, logFile))
+	os.system("./%s/pair_hmm.py len=%s t=%s a=%s e=%s g=%s l=%s rep=%s tree=%s in=%s >> %s"%(workingDir, options.length, options.time, options.indel, options.extension, options.gamma, options.Lambda, options.rep, options.tree, options.ifname, logFile))
 	
 	#realignment
 	#get job queue
@@ -61,7 +69,7 @@ def simulationAndRealignment(max_thread=1,load=1):
 			if job_queue.empty():
 				break
 			for i in range(max_thread):
-				if job_queue.empty()
+				if job_queue.empty():
 					break
 				os.system("echo '---->%d%s >> %s"%(i,cluster[i%len(cluster)], logFile)) 
 				t = Worker(job_queue, cluster[i%len(cluster)])
@@ -77,13 +85,15 @@ def simulationAndRealignment(max_thread=1,load=1):
 	os.system("echo 'combining results>>%s"%(logFile))
 	for i in range(36):
 		jobFName = "%s/result_for_%s_with_t%.2f"%(dataDir, os.path.splitext(options.ifname)[0], 0.05+0.01*i)
-		accuracy.append(real(commands.getoutput("less "+jobFName)
+		accuracy.append(real(commands.getoutput("less "+jobFName)))
 		os.system("rm "+jobFName)
 
 if __name__ == "__main__":
-	global dataDir = 'data/%s'%(os.path.splitext(options.ifnmae)[0])
-	if not os.path.exits(dataDir):
+	global dataDir 
+	global logFile 
+	dataDir = 'data/%s'%(os.path.splitext(options.ifname)[0])
+	if not os.path.exists(dataDir):
 		os.mkdir(dataDir)
-	global logFile = dataDir+'log.txt'
+	logFile = dataDir+'log.txt'
 	simulationAndRealignment()
-	print get_free_nodes()
+	#print get_free_nodes()
