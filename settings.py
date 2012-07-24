@@ -54,6 +54,8 @@ ACHECK = False
 PCHECK = False
 
 TCHECK = False
+
+ALIGNMENT = False
 # output file name
 OUT_FILE = ROOT + "/data/realign.fas"
 
