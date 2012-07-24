@@ -498,7 +498,9 @@ def main(argv):
 	validateArgv(argv)
 	#Read command line argument to settings
 	readArgv(argv)
-	if settings.PCHECK:
+	if settings.ALIGNMENT:
+		alignmentWithSpecificParameters(settings.TIME)
+	elif settings.PCHECK:
 		checkAlignmentParameters()
 	elif settings.ACHECK:
 		checkIndelEffect()
