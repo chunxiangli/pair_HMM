@@ -56,6 +56,7 @@ def simulationAndRealignment(max_thread=1,load=1):
 		job_queue.put((i, 0.05+0.01*i))
 	os.system("echo 'processing' >> %s"%(logFile))
 	threads = []
+	cluster = get_free_nodes()[0]
 	for j in range(load):
 			if job_queue.empty():
 				break
