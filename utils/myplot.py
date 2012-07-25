@@ -71,6 +71,7 @@ textcoords='axes fraction', arrowprops=dict(facecolor="red", shrink=0.02))
         pyplot.annotate('real(%.2f,%.4f)'%(realTime, accuracy[t.index(realTime)]), xy=(realTime, accuracy[t.index(realTime)]), xycoords='data', xytext=(0.5, 0.5)
 , textcoords='axes fraction', arrowprops=dict(facecolor="black", shrink=0.02))
 	'''
+	pyplot.axvline(realTime, ymax=np.array(accuracy).max(), linewidth=1)
         pyplot.savefig('./image/'+fileName, dpi=200)
 	pyplot.close()
         #pyplot.show()
