@@ -27,13 +27,15 @@ def readArgv(argv):
 		'out': 'OUT_FILE'
 	}
 	stringArguments = {
-		'tree': 'TREE'
+		'tree': 'TREE',
+		'id' : 'ID'
 	}
 	boolArguments = {
 		'acheck': 'ACHECK',
 		'pcheck': 'PCHECK',
 		'tcheck': 'TCHECK',
-		'alignment': 'ALIGNMENT'}
+		'alignment': 'ALIGNMENT',
+		'simul': 'SIMUL'}
 
 	for x in range(1, len(argv)):
 		key, value = argv[x].split("=",2)
@@ -47,7 +49,10 @@ def readArgv(argv):
 			sDir = os.path.splitext(value)[0]
 			if not os.path.exists("./data/%s"%(sDir)):
 				os.system("mkdir ./data/%s"%(sDir))
-			settings.__dict__[fileArguments[key]]  = '%s/%s/%s/%s'%(settings.ROOT, 'data', sDir, value)
+			if None != settings.ID:
+				settings.__dict__[fileArguments[key]]  = '%s/%s/%s/%s_%s%s'%(settings.ROOT, 'data', sDir, os.path.splitext(value)[0], settings.ID, os.path.splitext(value)[1])
+			else:
+				settings.__dict__[fileArguments[key]]  = '%s/%s/%s/%s'%(settings.ROOT, 'data', sDir, value)
 		elif key in stringArguments:
 			settings.__dict__[stringArguments[key]] = value.strip()
 		elif key in boolArguments:

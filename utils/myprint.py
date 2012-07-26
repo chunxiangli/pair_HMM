@@ -62,7 +62,11 @@ def seq2Record(seq):
 	return SeqRecord(Seq(''.join(seq.seq)), id=seq.name, name='', description='')
 
 def printFastaFile(seq, outFile):
-	return SeqIO.write([ seq2Record(s) for s in seq], outFile, "fasta")
+	if not isinstance(seq[0], list):
+		SeqIO.write([ seq2Record(s) for s in seq], outFile, "fasta")
+	else:
+		for s in seq:
+			SeqIO.write([seq2Record(i) for i in s], outFile, 'fasta')
 
 def printPhylipFile(seq, outFile):
 	SeqIO.write([ seq2Record(s) for s in seq], outFile, "phylip")

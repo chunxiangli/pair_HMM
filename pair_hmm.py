@@ -23,7 +23,6 @@ from matplotlib import pyplot
 
 cpuNum  = multiprocessing.cpu_count()
 sequencesBlock = []
-resetDistance = False
 def printHelp(argv):
 	print '''
 	Usage: %s [args]
@@ -58,6 +57,7 @@ def validateArgv(argv):
 			print "Argument \'%s\' in wrong format. Use \'key=value\'." % (arg[0])
 			print "For more instructions try \'%s help\'" % (argv[0])
 			sys.exit(0)	
+
 def poolMap(task, param, cpuNum, chuckSize=1):
 	pool = Pool(cpuNum)
 	result = pool.map(task, param, chuckSize)
@@ -110,7 +110,7 @@ def observedDifference(seqPair):
 	return (observedP) 
 
 	
-def pairSimulation(outFile, plot=True):
+def pairSimulation(outFile, plot=False):
 	if None == settings.TREE:
 		(left, t1) = ('A', (settings.TIME/2))
 		(right, t2) = ('B', (settings.TIME/2))
@@ -180,10 +180,11 @@ def readPairSequences(inFile, num=1):
 				sequences = []
 	return pairArr
 			
-def pairAlignmentWithSpecificParameters(sequences):
+def pairAlignmentWithSpecificParameters(param):
 	t1 = settings.TIME/2
 	t2 = settings.TIME/2
-	if not resetDistance:
+	sequences =  param[0]
+	if not param[1]:
 		t1 = float(re.search(':(\d+\.?\d+)\|?', sequences[0].name).group(1).strip())
 		t2 = float(re.search(':(\d+\.?\d+)\|?', sequences[1].name).group(1).strip()) 
 	pair_hmm = pHMM(t1, t2)
@@ -200,11 +201,11 @@ def chunkSize(size):
 	return cSize
 
 def realignment(inFile, outFile, reset=False):
-	resetDistance = reset
 	sequences= readPairSequences(inFile, settings.REPLICATE)
-	results = poolMap(pairAlignmentWithSpecificParameters, sequences, chunkSize(settings.REPLICATE))
+	pArr = [[seq, reset] for seq in sequences]
+	results = poolMap(pairAlignmentWithSpecificParameters, pArr, chunkSize(settings.REPLICATE))
 	results = np.array(results)
-	printFastaFile(results[:,1][0], outFile)
+	printFastaFile(results[:,1], outFile)
 	return results[:,0]
 	
 	
@@ -223,7 +224,7 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 	accuracy = []
 	realTime = 0
 	try:
-		replicateSimulation(settings.IN_FILE, False)
+		replicateSimulation(settings.IN_FILE)
 		indel = settings.INDEL
 		realTime = settings.TIME
 		'''	
@@ -267,7 +268,7 @@ def pairSimulationAndAlignment(plot=False):
 
 	return (accArr)
 
-def replicateSimulation(outFile, plot=True):
+def replicateSimulation(outFile, plot=False):
 	of = open(outFile, 'w')
 	pairSimulation(of, plot)
 	of.close()	
@@ -282,13 +283,10 @@ def checkAlignmentParameters():
 	accuracy = []
 	start = time.time()
 	for i in indelArr:
-		print i
 		settings.INDEL = i
-		pool = Pool(cpuNum)
-		pArr = [[0.05 + i*0.01, settings.IN_FILE] for i in range(36)]
-		acc = pool.map(alignmentWithSpecificDistance, pArr, chunkSize(len(pArr)))
-		pool.close()
-		pool.join()
+		acc = []
+		for j in tArr:	
+			acc = alignmentWithSpecificDistance(j)
 		accuracy.append(acc[:])
 	print "time using:%.3gs"%(time.time()-start)
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
@@ -499,17 +497,19 @@ def main(argv):
 	#Read command line argument to settings
 	readArgv(argv)
 	if settings.ALIGNMENT:
-		alignmentWithSpecificParameters(settings.TIME)
+		print alignmentWithSpecificDistance(settings.TIME)
 	elif settings.PCHECK:
 		checkAlignmentParameters()
 	elif settings.ACHECK:
 		checkIndelEffect()
+	elif settings.SIMUL:
+		replicateSimulation(settings.IN_FILE)
 	elif settings.TCHECK:
 		simulationAndAlignmentWithVariantDistance(True)
 	elif None == settings.TREE:
 		checkAccuracySimulation()
 	elif len(re.findall('\(',settings.TREE)) < 2:
-		pairSimulationAndAlignment(True)
+		print pairSimulationAndAlignment()
 	else:
 		try:	
 			outFile = open(settings.IN_FILE, 'w')

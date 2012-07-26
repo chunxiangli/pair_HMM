@@ -55,6 +55,7 @@ def plotAlignmentResult(t, accuracy,realTime, fileName, title, indel=None):
 	pyplot.gca().set_color_cycle(['black','red','blue','yellow','green','purple', 'k', 'c', 'm'])
 	for a in accuracy:
         	pyplot.plot(np.array(t), np.array(a))
+		pyplot.plot(realTime, a[t.index(realTime)],'ro')
 	if None != indel:
 		pyplot.legend(indel, loc='center left', bbox_to_anchor=(1, 0.5))
         #pyplot.plot(np.array(t), np.array(accuracy))
@@ -71,7 +72,6 @@ textcoords='axes fraction', arrowprops=dict(facecolor="red", shrink=0.02))
         pyplot.annotate('real(%.2f,%.4f)'%(realTime, accuracy[t.index(realTime)]), xy=(realTime, accuracy[t.index(realTime)]), xycoords='data', xytext=(0.5, 0.5)
 , textcoords='axes fraction', arrowprops=dict(facecolor="black", shrink=0.02))
 	'''
-	pyplot.axvline(realTime, ymax=np.array(accuracy).max(), linewidth=1)
         pyplot.savefig('./image/'+fileName, dpi=200)
 	pyplot.close()
         #pyplot.show()
