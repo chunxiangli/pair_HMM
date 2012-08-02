@@ -121,7 +121,7 @@ def pairSimulation(outFile, plot=False):
 		t2 = float(t2)
 		settings.TIME = t1 + t2
 	pair_hmm = pHMM(t1, t2, left, right)
-	
+	np.savetxt('%s/substitutionMatrix'%(os.path.dirname(settings.IN_FILE)), np.array(dnaModelJC69.eMatrix), fmt="%.5f")	
 	p = []
 	indelArr = []
 	matchArr = []
@@ -184,15 +184,21 @@ def pairAlignmentWithSpecificParameters(param):
 	t1 = settings.TIME/2
 	t2 = settings.TIME/2
 	sequences =  param[0]
+	realTime1 = float(re.search(':(\d+\.?\d+)\|?', sequences[0].name).group(1).strip())
+	realTime2 = float(re.search(':(\d+\.?\d+)\|?', sequences[1].name).group(1).strip()) 
 	if not param[1]:
-		t1 = float(re.search(':(\d+\.?\d+)\|?', sequences[0].name).group(1).strip())
-		t2 = float(re.search(':(\d+\.?\d+)\|?', sequences[1].name).group(1).strip()) 
+		t1 = realTime1
+		t2 = realTime2
 	pair_hmm = pHMM(t1, t2)
 	alignment = copy.deepcopy(sequences)
 	for c in alignment: c.removeGap()
-	alignment = pair_hmm.alignSeq(alignment)	
+	(alignment, score) = pair_hmm.alignSeq(alignment)	
+	if param[1]:
+		pHmm = pHMM(realTime1, realTime2)
+		score = pHmm.getProbability(alignment)
 	accuracy = fidelity(sequences, alignment)
-	return [accuracy, alignment]
+	np.savetxt("%s/substitutionMatrix_%.2f"%(os.path.dirname(settings.IN_FILE), settings.TIME), np.array(dnaModelJC69.eMatrix), fmt="%.5f")
+	return [accuracy, alignment, score]
 
 def chunkSize(size):
 	cSize = size / cpuNum
@@ -206,17 +212,19 @@ def realignment(inFile, outFile, reset=False):
 	results = poolMap(pairAlignmentWithSpecificParameters, pArr, chunkSize(settings.REPLICATE))
 	results = np.array(results)
 	printFastaFile(results[:,1], outFile)
-	return results[:,0]
+	return (results[:,0], results[:,2])
 	
 	
 def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
         f2 = open("%s/alignment_over_%s"%(os.path.dirname(settings.IN_FILE), re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
-        accArr = realignment(f1, f2, True)
+        (accArr, scoreArr) = realignment(f1, f2, True)
+	#print accArr
+	#print scoreArr
         f2.close()
         f1.close()
-        return accArr.mean()
+        return (accArr.mean(), scoreArr.mean())
 
 def simulationAndAlignmentWithVariantDistance(plot=False):
 	P = []
@@ -227,16 +235,9 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		replicateSimulation(settings.IN_FILE)
 		indel = settings.INDEL
 		realTime = settings.TIME
-		'''	
-		cSize = len(t)/cpuNum
-                if cSize*cpuNum < len(t):
-                        cSize += 1
-
-		accuracy = poolMap(alignmentWithSpecificDistance, t, cSize, cpuNum)
-		'''
 		start = time.time()
 		for i in t:
-			accuracy.append(alignmentWithSpecificDistance(i))
+			accuracy.append(alignmentWithSpecificDistance(i)[0])
 		print "time using:%.2gs"%(time.time() - start)
 		
 		if plot:
@@ -286,7 +287,7 @@ def checkAlignmentParameters():
 		settings.INDEL = i
 		acc = []
 		for j in tArr:	
-			acc = alignmentWithSpecificDistance(j)
+			acc = alignmentWithSpecificDistance(j)[0]
 		accuracy.append(acc[:])
 	print "time using:%.3gs"%(time.time()-start)
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)

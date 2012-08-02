@@ -71,22 +71,24 @@ class eModel:
 		pass
 
 	@staticmethod
-	def emissionProb(a,b,t1, t2):
-		return 1.0
+	def emissionProb(a,b,t1, t2):#log probability
+		return float("-Inf")
 
 		
 class dnaModelJC69(eModel):
 
 	modelName = "JC69"	
+	matchProb = 0
+	mismatchProb = 0
 	# remain probability	
 	@staticmethod
 	def p0(t):
-		return (1.0/4 + 3.0/4 * math.exp(-4 * settings.LAMBDA * (t/3))) 
+		return (1.0/4 + 3.0/4 * math.exp(-4 * settings.LAMBDA * (t/3.0))) 
 
 	# substitution probability
 	@staticmethod
 	def p1(t):
-		return (1.0/4 - 1.0/4 * math.exp(-4 * settings.LAMBDA * (t/3)))
+		return (1.0/4 - 1.0/4 * math.exp(-4 * settings.LAMBDA * (t/3.0)))
 
 	eMatrix = None	
 	
@@ -95,8 +97,10 @@ class dnaModelJC69(eModel):
 		dnaModelJC69.eMatrix = [[dnaModelJC69.p1(t) for i in range(4)] for j in range(4)]
 		for i in range(4):
 			dnaModelJC69.eMatrix[i][i] = dnaModelJC69.p0(t)
+		dnaModelJC69.matchProb = math.log(0.25) + math.log(3*math.pow(dnaModelJC69.p1(t/2.0), 2) + math.pow(dnaModelJC69.p0(t/2.0), 2))# - math.log(math.pow(0.25, 2))
+		dnaModelJC69.mismatchProb = math.log(0.5) + math.log(dnaModelJC69.p1(t/2.0)) + math.log(dnaModelJC69.p1(t/2.0)+dnaModelJC69.p0(t/2.0))# - math.log(math.pow(0.25, 2))
 
-
+	
 	@staticmethod
 	def emission(t1, t2, a=None):
 		if None == a:
@@ -116,6 +120,7 @@ class dnaModelJC69(eModel):
 	#output the probability of the nucleotide a in sequence x matching the nucleotide b in sequence y
 	@staticmethod	
 	def emissionProb(a, b, t1, t2):
+		'''
 		f = 0.0
 		dN = [a, b]	
 		t = [t1, t2]
@@ -130,6 +135,17 @@ class dnaModelJC69(eModel):
 		for d in dN:
 			f = f / settings.BASE_FREQUENCY[settings.BASE.index(d)]
 		return f
+		'''
+		if a == b:
+			return dnaModelJC69.matchProb
+		else:
+			return dnaModelJC69.mismatchProb
+		'''
+		if a == b:
+			return math.log(dnaModelJC69.p0(t1+t2)) + math.log(0.25)
+		else:
+			return math.log(dnaModelJC69.p1(t1+t2)) + math.log(0.25)
+		'''
 		
 def sampleNucleotide():
         return settings.BASE[randomIndex(settings.BASE_FREQUENCY)]
@@ -141,7 +157,7 @@ class xInsertModel(eModel):
 
 	@staticmethod
 	def emissionProb(a, b, t1, t2):
-		return settings.BASE_FREQUENCY[settings.BASE.index(a)]
+		return math.log(settings.BASE_FREQUENCY[settings.BASE.index(a)])
 		
 class yInsertModel(eModel):
 	@staticmethod
@@ -150,7 +166,7 @@ class yInsertModel(eModel):
 
 	@staticmethod
 	def emissionProb(a, b, t1, t2):
-		return settings.BASE_FREQUENCY[settings.BASE.index(b)]
+		return math.log(settings.BASE_FREQUENCY[settings.BASE.index(b)])
 
 
 
@@ -320,8 +336,8 @@ class pHMM:
 
 			if seqLen < rLen and "W" == preState and ( "X" == curState.stateType or "Y" ==curState.stateType):
 				self.indelNum += 1
+
 		self.observedDif = (1.0 * self.observedDif) / subSiteNum
-		#print dnaModelJC69
 		
 		return (children1, children2)	
 
@@ -382,14 +398,14 @@ class pHMM:
 		elif yIndex > 0:
 			alignedY.insertSeq(y.seq[:yIndex][::-1], y.site[:yIndex][::-1])
 			alignedX.insertSeq('-'*yIndex, [0 for i in range(yIndex)])
-
-		pHMM.observedDif = (1.0 * pHMM.observedDif)/subSiteNum
+		if 0 != subSiteNum:
+			pHMM.observedDif = (1.0 * pHMM.observedDif)/subSiteNum
 		alignedX.seq = alignedX.seq[::-1]
 		alignedY.seq = alignedY.seq[::-1]
 		alignedX.site = alignedX.site[::-1]
 		alignedY.site = alignedY.site[::-1]
 
-		return [alignedX, alignedY]
+		return ([alignedX, alignedY], optimalScore)
 					
 
 			
@@ -459,9 +475,8 @@ class pHMM:
 								maxPreScore = tempProb
 
 						pointerMatrix[state.stateType][i][j] = tempPointer
-						
 						if (i > 0 and j > 0) or (i > 0 and "X" == state.stateType) or (j > 0 and "Y" == state.stateType):		
-							s[stateArr.index(state)] = log(eProb(state, seqX[i-1],seqY[j-1])) + maxPreScore
+							s[stateArr.index(state)] = eProb(state, seqX[i-1], seqY[j-1]) + maxPreScore
 						else:
 							s[stateArr.index(state)] = mInf + maxPreScore 	
 
@@ -471,6 +486,32 @@ class pHMM:
 					if xRange - 1 != i or yRange - 1 != j:
 						a = copy.deepcopy(s)
 		return self.optimalAlignment(seq, s, pointerMatrix)
+	
+	def getProbability(self, alignment):
+		eProb = lambda state,a,b: state.emissionProb(a, b, self.time1, self.time2)
+		x = alignment[0].seq
+		y = alignment[1].seq
+		score = 0
+		preState = 0
+		stateArr = [self.xState, self.yState, self.mState]
+		scoreArr = []
+		
+		for index in range(alignment[0].length):
+			curState = 2
+			if settings.GAP == x[index]:
+				curState = 1
+			elif settings.GAP == y[index]: 
+				curState = 0
+			score += math.log(self.wState.outFreq[curState])
+			score += eProb(stateArr[curState], x[index], y[index])
+			if 0 != index and 2 != curState:
+				if preState != curState:
+					score += math.log(stateArr[curState].inFreq[0]) 
+				else:
+					score += math.log(self.dummyState.inFreq[curState])
+			scoreArr.append(score)	
+			preState = curState
+		return score
 
 	def setStateDistribution(self):
 		np.savetxt('input', np.array(self.transMatrix))

@@ -22,7 +22,6 @@ parser.add_option("-l", "--l", dest="Lambda", default="1", help="substitution ra
 parser.add_option("-g", "--g", dest="gamma", default="0", help="gap extension probability")
 parser.add_option("-s", "--slen", dest="length", default="100", help="result alignment length")
 parser.add_option("-r", "--rep", dest="rep", default="10", help="replicate num")
-parser.add_option("-t", "--t", dest="time", default="0.2", help="time distance between generated sequences")
 parser.add_option("-d", "--dtree", dest="tree", default="(A:0.1,B:0.1)", help="replicate num")
 parser.add_option("-m", "--max", dest="max_thread", default="5", help="average load(thread per node in cluster)")
 (options, arguments) = parser.parse_args()
@@ -77,7 +76,7 @@ def simulationAndRealignment():
 		os.system("./pair_hmm.py len=%s a=%s e=%s g=%s l=%s rep=%d tree='%s' id=%d in=%s simul=1>> %s"%(options.length, options.indel, options.extension, options.gamma, options.Lambda, block_size, options.tree, block_id, options.ifname, logFile))
 	#realignment
 	#get job queue
-	t_range = 36 
+	t_range = 56 
 	print "get the job queue"
 	job_id = 0
 	for i in range(t_range):
@@ -109,6 +108,7 @@ def simulationAndRealignment():
 				threads.append(t)
 			except ThreadError:
 				os.system("echo '\t\tError: thread error caught!'>>%s"%(logFile))
+		time.sleep(random.randint(5000,6000)/1000.0)
 		
 		os.system("echo 'using %d nodes in cluster' >>%s"%(nodes_num,  logFile))
 	for t in threads:
@@ -117,15 +117,21 @@ def simulationAndRealignment():
 	#combine results
 	os.system("echo 'combining results' >>%s"%(logFile))
 	accuracy = []
+	score = []
 	for i in range(t_range):
 		acc = []
+		lScore = []
 		for j in range(block):
 			jobFName = "%s/result_for_%s_%d_with_t%.2f"%(dataDir, os.path.splitext(options.ifname)[0], j, 0.05+0.01*i)
-			s = commands.getoutput("less "+jobFName)
-			acc.append(float(s))
+			s = commands.getoutput("tail -1 %s |tr -d '(|)|'|tr ',' ' '"%(jobFName))
+			s = s.split()
+			acc.append(float(s[0]))
+			lScore.append(float(s[1]))
 			os.system("rm "+jobFName)
 		accuracy.append(np.array(acc).mean())
+		score.append(np.array(lScore).mean())
 	os.system("echo %s > %s/finalResult"%(' '.join([str(i) for i in accuracy]), dataDir))
+	os.system("echo %s > %s/finalScore"%(' '.join([str(i) for i in score]), dataDir))
 	os.system("echo '%.4gs' >> %s"%(time.time()-start, logFile))
 
 if __name__ == "__main__":

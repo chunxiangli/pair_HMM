@@ -50,20 +50,26 @@ def plotSimulationResult(t, eTReal, oTReal, oIndelibleDif, eInDel, oInDel, eMatc
 	pyplot.close()
         #pyplot.show()
 
-def plotAlignmentResult(t, accuracy,realTime, fileName, title, indel=None):
-	pyplot.figure(2,(14,10))
+def plotAlignmentResult(t, accuracy, realTime, fileName, title, indel=None, yLabel='accuracy'):
+	newT = ['%.2f'%(i) for i in t]
+	pyplot.figure(2)
 	pyplot.gca().set_color_cycle(['black','red','blue','yellow','green','purple', 'k', 'c', 'm'])
 	for a in accuracy:
         	pyplot.plot(np.array(t), np.array(a))
-		pyplot.plot(realTime, a[t.index(realTime)],'ro')
+		pyplot.plot(realTime, a[newT.index("%.2f"%(realTime))],'rd')
+		maxAcc = np.array(a).max()
+		pyplot.plot(t[a.index(maxAcc)], maxAcc, 'b*')
 	if None != indel:
 		pyplot.legend(indel, loc='center left', bbox_to_anchor=(1, 0.5))
         #pyplot.plot(np.array(t), np.array(accuracy))
 	pyplot.title(title)
         pyplot.xlabel("distance")
-        pyplot.ylabel("accuracy")
+        pyplot.ylabel(yLabel)
         pyplot.xlim(t[0], t[len(t)-1])
-        pyplot.ylim(np.array(accuracy).min()-0.01, 1)
+	if 'accuracy' == yLabel:
+        	pyplot.ylim(np.array(accuracy).min()-0.01, np.array(accuracy).max()+0.01)
+	else:
+		pyplot.ylim(np.array(accuracy).min(), np.array(accuracy).max()+10)
 	'''
         pyplot.ylim(np.array(accuracy).min()-0.1, 1)
         maxAcc = np.array(accuracy).max()
