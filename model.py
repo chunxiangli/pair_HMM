@@ -135,7 +135,6 @@ class dnaModelJC69(eModel):
 		for d in dN:
 			f = f / settings.BASE_FREQUENCY[settings.BASE.index(d)]
 		return f
-		'''
 		if a == b:
 			return dnaModelJC69.matchProb
 		else:
@@ -145,7 +144,6 @@ class dnaModelJC69(eModel):
 			return math.log(dnaModelJC69.p0(t1+t2)) + math.log(0.25)
 		else:
 			return math.log(dnaModelJC69.p1(t1+t2)) + math.log(0.25)
-		'''
 		
 def sampleNucleotide():
         return settings.BASE[randomIndex(settings.BASE_FREQUENCY)]
