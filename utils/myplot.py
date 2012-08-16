@@ -58,7 +58,10 @@ def plotAlignmentResult(t, accuracy, realTime, fileName, title, indel=None, yLab
         	pyplot.plot(np.array(t), np.array(a))
 		pyplot.plot(realTime, a[newT.index("%.2f"%(realTime))],'rd')
 		maxAcc = np.array(a).max()
-		pyplot.plot(t[a.index(maxAcc)], maxAcc, 'b*')
+		if abs(maxAcc - a[newT.index("%.2f"%(realTime))]) > 0.0001: 
+			pyplot.plot(t[a.index(maxAcc)], maxAcc, 'b*')
+		else:
+			pyplot.plot(realTime, a[newT.index("%.2f"%(realTime))],'b*')
 	if None != indel:
 		pyplot.legend(indel, loc='center left', bbox_to_anchor=(1, 0.5))
         #pyplot.plot(np.array(t), np.array(accuracy))

@@ -97,8 +97,10 @@ class dnaModelJC69(eModel):
 		dnaModelJC69.eMatrix = [[dnaModelJC69.p1(t) for i in range(4)] for j in range(4)]
 		for i in range(4):
 			dnaModelJC69.eMatrix[i][i] = dnaModelJC69.p0(t)
+		'''
 		dnaModelJC69.matchProb = math.log(0.25) + math.log(3*math.pow(dnaModelJC69.p1(t/2.0), 2) + math.pow(dnaModelJC69.p0(t/2.0), 2))# - math.log(math.pow(0.25, 2))
 		dnaModelJC69.mismatchProb = math.log(0.5) + math.log(dnaModelJC69.p1(t/2.0)) + math.log(dnaModelJC69.p1(t/2.0)+dnaModelJC69.p0(t/2.0))# - math.log(math.pow(0.25, 2))
+		'''
 
 	
 	@staticmethod
@@ -143,7 +145,7 @@ class dnaModelJC69(eModel):
 		if a == b:
 			return math.log(dnaModelJC69.p0(t1+t2)) + math.log(0.25)
 		else:
-			return math.log(dnaModelJC69.p1(t1+t2)) + math.log(0.25)
+			return math.log(dnaModelJC69.p1(t1+t2)) +  math.log(0.25)
 		
 def sampleNucleotide():
         return settings.BASE[randomIndex(settings.BASE_FREQUENCY)]
@@ -354,24 +356,24 @@ class pHMM:
 		yIndex = yLen
 		optimalState = ""
 		optimalScore = 0
-
 		if score[0] > score[1]:
-			optimalState = "M"
+			optimalState = "X"
 			optimalScore = score[0]
 			if score[0] < score[2]:
-				optimalState = "Y"
+				optimalState = "M"
 				optimalScore = score[2]
 		else:
-			optimalState = "X"
+			optimalState = "Y"
 			optimalScore = score[1]
 			if score[1] < score[2]:
-				optimalState = "Y"
+				optimalState = "M"
 				optimalScore = score[2]
-			
 		#print "The optimal alignment with log probability %f"%(optimalScore)
 
 		while xIndex > 0 and yIndex > 0:
+			#print xIndex,yIndex,optimalState
 			nextState = pointer[optimalState][xIndex][yIndex]	
+			#print nextState
 			if "X" == optimalState:
 				xIndex -= 1
 				alignedX.insertSeq(x.seq[xIndex], x.site[xIndex])
@@ -382,9 +384,9 @@ class pHMM:
 				alignedY.insertSeq(y.seq[yIndex], y.site[yIndex])
 			elif "M" == optimalState:
 				xIndex -= 1
-				yIndex -=1
+				yIndex -= 1
 				alignedX.insertSeq(x.seq[xIndex], x.site[xIndex])
-				alignedY.insertSeq(y.seq[yIndex],y.site[yIndex])
+				alignedY.insertSeq(y.seq[yIndex], y.site[yIndex])
 				subSiteNum += 1
 				if x.seq[xIndex] != y.seq[yIndex]:
 					pHMM.observedDif += 1
@@ -398,6 +400,7 @@ class pHMM:
 			alignedX.insertSeq('-'*yIndex, [0 for i in range(yIndex)])
 		if 0 != subSiteNum:
 			pHMM.observedDif = (1.0 * pHMM.observedDif)/subSiteNum
+
 		alignedX.seq = alignedX.seq[::-1]
 		alignedY.seq = alignedY.seq[::-1]
 		alignedX.site = alignedX.site[::-1]
@@ -432,27 +435,27 @@ class pHMM:
 		'''
 		mInf = float('-Inf')
 		wMatrix = [mInf for j in range(yRange)]
-		scoreMatrix = {"M": copy.deepcopy(wMatrix), "X": copy.deepcopy(wMatrix), "Y": copy.deepcopy(wMatrix)}
+		scoreMatrix = {"X": copy.deepcopy(wMatrix), "Y": copy.deepcopy(wMatrix), "M": copy.deepcopy(wMatrix)}
 
 		pMatrix = [[ 0 for j in range(yRange)] for i in range(xRange)]
-		pointerMatrix = {"M": copy.deepcopy(pMatrix), "X": copy.deepcopy(pMatrix), "Y": copy.deepcopy(pMatrix)}
+		pointerMatrix = {"X": copy.deepcopy(pMatrix), "Y": copy.deepcopy(pMatrix), "M": copy.deepcopy(pMatrix)}
 
 		# The initial value 
 		scoreMatrix["M"][0] = 0
 		pointerMatrix["M"][0][0] = "start"
 
 
-		stateArr = [self.mState, self.xState, self.yState]
+		stateArr = [self.xState, self.yState, self.mState]
 
 		def getValue(scoreMatrix,stateType,j):
 			if j < 0:
 				return float("-Inf")
 			else:
 				return scoreMatrix[stateType][j]
+
 		stateNum = len(stateArr)
-		a = [mInf for i in range(stateNum)]
+		a = [mInf, mInf, 0]
 		s = [0 for i in range(stateNum)]
-		start = time.clock()
 		for i in range(xRange):
 			for j in range(yRange):
 				if i != 0 or j != 0:
@@ -463,11 +466,17 @@ class pHMM:
 
 						if "X" == state.stateType:
 							yIndex = j
-						maxPreScore = getValue(scoreMatrix, state.stateType, yIndex) + log(state.inFreq[0])
+						if "Y" != state.stateType:
+							maxPreScore = getValue(scoreMatrix, state.stateType, yIndex) + log(state.inFreq[0])
+						else:
+							maxPreScore = a[stateArr.index(self.yState)] + log(state.inFreq[0])
 						tempPointer = state.stateType
 						for stateIndex in range(len(self.dummyState.parent)):
 							stateType = self.dummyState.parent[stateIndex].stateType
-							tempProb = getValue(scoreMatrix, stateType, yIndex) + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+							if "Y" != state.stateType:
+								tempProb = getValue(scoreMatrix, stateType, yIndex) + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+							else:
+								tempProb = a[stateIndex] + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
 							if tempProb > maxPreScore:
 								tempPointer = stateType
 								maxPreScore = tempProb
@@ -478,11 +487,18 @@ class pHMM:
 						else:
 							s[stateArr.index(state)] = mInf + maxPreScore 	
 
-						if "M" == state.stateType and j - 1 > 0:
-							for stateIndex in range(stateNum):
-								scoreMatrix[stateArr[stateIndex].stateType][yIndex] = a[stateIndex]
-					if xRange - 1 != i or yRange - 1 != j:
-						a = copy.deepcopy(s)
+					if j > 0:
+						for stateIndex in range(stateNum):
+							scoreMatrix[stateArr[stateIndex].stateType][j-1] = a[stateIndex]
+
+					a = copy.deepcopy(s)
+
+			#the last cell in the row
+			for stateIndex in range(stateNum):	
+				scoreMatrix[stateArr[stateIndex].stateType][yRange-1] = a[stateIndex]
+
+			a = [mInf for i in range(stateNum)]
+
 		return self.optimalAlignment(seq, s, pointerMatrix)
 	
 	def getProbability(self, alignment):
@@ -496,17 +512,17 @@ class pHMM:
 		
 		for index in range(alignment[0].length):
 			curState = 2
-			if settings.GAP == x[index]:
+			if settings.GAP == x[index]:#yState
 				curState = 1
-			elif settings.GAP == y[index]: 
+			elif settings.GAP == y[index]:#xState 
 				curState = 0
 			score += math.log(self.wState.outFreq[curState])
 			score += eProb(stateArr[curState], x[index], y[index])
 			if 0 != index and 2 != curState:
-				if preState != curState:
+				if preState == curState:
 					score += math.log(stateArr[curState].inFreq[0]) 
 				else:
-					score += math.log(self.dummyState.inFreq[curState])
+					score += math.log(self.dummyState.inFreq[preState])
 			scoreArr.append(score)	
 			preState = curState
 		return score

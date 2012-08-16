@@ -121,7 +121,7 @@ def pairSimulation(outFile, plot=False):
 		t2 = float(t2)
 		settings.TIME = t1 + t2
 	pair_hmm = pHMM(t1, t2, left, right)
-	np.savetxt('%s/substitutionMatrix'%(os.path.dirname(settings.IN_FILE)), np.array(dnaModelJC69.eMatrix), fmt="%.5f")	
+	#np.savetxt('%s/substitutionMatrix'%(os.path.dirname(settings.IN_FILE)), np.array(dnaModelJC69.eMatrix), fmt="%.5f")	
 	p = []
 	indelArr = []
 	matchArr = []
@@ -193,11 +193,13 @@ def pairAlignmentWithSpecificParameters(param):
 	alignment = copy.deepcopy(sequences)
 	for c in alignment: c.removeGap()
 	(alignment, score) = pair_hmm.alignSeq(alignment)	
+	'''
 	if param[1]:
 		pHmm = pHMM(realTime1, realTime2)
 		score = pHmm.getProbability(alignment)
+	'''
 	accuracy = fidelity(sequences, alignment)
-	np.savetxt("%s/substitutionMatrix_%.2f"%(os.path.dirname(settings.IN_FILE), settings.TIME), np.array(dnaModelJC69.eMatrix), fmt="%.5f")
+	#np.savetxt("%s/substitutionMatrix_%.2f"%(os.path.dirname(settings.IN_FILE), settings.TIME), np.array(dnaModelJC69.eMatrix), fmt="%.5f")
 	return [accuracy, alignment, score]
 
 def chunkSize(size):
