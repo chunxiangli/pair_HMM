@@ -105,6 +105,8 @@ class dnaModelJC69(eModel):
 	
 	@staticmethod
 	def emission(t1, t2, a=None):
+		if settings.GAP == a:
+			return (settings.GAP, settings.GAP)
 		if None == a:
 			a = sampleNucleotide()	
 	#	pBaseSub = [dnaModelJC69.p1(t1+t2) for i in range(4)]
@@ -122,30 +124,10 @@ class dnaModelJC69(eModel):
 	#output the probability of the nucleotide a in sequence x matching the nucleotide b in sequence y
 	@staticmethod	
 	def emissionProb(a, b, t1, t2):
-		'''
-		f = 0.0
-		dN = [a, b]	
-		t = [t1, t2]
-		for n in settings.BASE:
-			fTemp = settings.BASE_FREQUENCY[settings.BASE.index(n)] 
-			for i in range(2):
-				if n != dN[i]:
-					fTemp *= dnaModelJC69.p1(t[i])
-				else:
-					fTemp *= dnaModelJC69.p0(t[i])
-			f += fTemp 	
-		for d in dN:
-			f = f / settings.BASE_FREQUENCY[settings.BASE.index(d)]
-		return f
 		if a == b:
-			return dnaModelJC69.matchProb
+			return math.log(dnaModelJC69.p0(t1+t2)) + math.log(settings.BASE_FREQUENCY[settings.BASE.index(a)])
 		else:
-			return dnaModelJC69.mismatchProb
-		'''
-		if a == b:
-			return math.log(dnaModelJC69.p0(t1+t2)) + math.log(0.25)
-		else:
-			return math.log(dnaModelJC69.p1(t1+t2)) +  math.log(0.25)
+			return math.log(dnaModelJC69.p1(t1+t2)) + math.log(settings.BASE_FREQUENCY[settings.BASE.index(a)])
 		
 def sampleNucleotide():
         return settings.BASE[randomIndex(settings.BASE_FREQUENCY)]
@@ -205,7 +187,7 @@ class State:
 			return self.children[randomIndex(self.outFreq)]
 #empty for dummystate
 
-def openGapProb(t): return (1- math.exp(-settings.INDEL * (t))) 
+def openGapProb(t): return 0#(1- math.exp(-settings.INDEL * (t))) 
 class pHMM:
 	gapOpenProb = 1	
 	
@@ -237,49 +219,36 @@ class pHMM:
 		#random.seed(1)
 
 	def stateInit(self):
-		self.dummyState = State([], [1 - settings.EPSILON, 1- settings.EPSILON, 1 - settings.GAMMA], [None],[1.0], eModel) 
-		self.xState = State([], [settings.EPSILON, self.gapOpenProb] ,[None, self.dummyState], [settings.EPSILON ,1-settings.EPSILON], xInsertModel, "X")
-		self.xState.children[0] = self.xState
+		self.xState = State([], [settings.EPSILON, self.gapOpenProb, self.gapOpenProb] ,[], [settings.EPSILON ,1-settings.EPSILON], xInsertModel, "X")
+		self.xState.children.append(self.xState)
 		self.xState.parent.append(self.xState)
 
-		#print "x state out prob:"
-		#print self.xState.outFreq
 
-		self.yState = State([], [settings.EPSILON, self.gapOpenProb], [None, self.dummyState], [settings.EPSILON, 1-settings.EPSILON], yInsertModel, "Y")
-		self.yState.children[0] = self.yState
+		self.yState = State([], [settings.EPSILON, self.gapOpenProb, self.gapOpenProb], [], [settings.EPSILON, 1-settings.EPSILON], yInsertModel, "Y")
+		self.yState.children.append(self.yState)
 		self.yState.parent.append(self.yState)
 
-		#print "y state out prob:"
-		#print self.yState.outFreq
 	
-		self.mState = State([], [settings.GAMMA, 1 - 2 * self.gapOpenProb], [None, self.dummyState], [settings.GAMMA, 1-settings.GAMMA], dnaModelJC69, "M")
+		self.mState = State([None, self.xState, self.yState], [1 - 2 * self.gapOpenProb, 1 - settings.EPSILON, 1 - settings.EPSILON, 1 - 2 * self.gapOpenProb], [None, self.xState, self.yState], [1 - 2 * self.gapOpenProb, self.gapOpenProb, self.gapOpenProb], dnaModelJC69, "M")
 		self.mState.children[0] = self.mState
-		self.mState.parent.append(self.mState)
-
-		#print "match state out prob:"
-		#print self.mState.outFreq
-
-		self.dummyState.parent.append(self.xState)
-		self.dummyState.parent.append(self.yState)
-		self.dummyState.parent.append(self.mState)
-		
-		
-		self.wState = State([None], [1], [self.xState, self.yState, self.mState],[self.gapOpenProb, self.gapOpenProb, 1-2*self.gapOpenProb], eModel, "W")
-
-		self.dummyState.children[0] = self.wState
-		self.wState.parent[0] = self.dummyState
-		
-		self.xState.parent.append(self.wState)
-		self.yState.parent.append(self.wState)
+		self.mState.parent[0] = self.mState
+	
+		self.wState = State([], [], [self.xState, self.yState, self.mState], [self.gapOpenProb, self.gapOpenProb, 1 - 2 * self.gapOpenProb], eModel, "W")
 		self.mState.parent.append(self.wState)
+		self.xState.children.append(self.mState)
+		self.yState.children.append(self.mState)
+
+		self.xState.parent.append(self.mState)
+		self.xState.parent.append(self.wState)
+		self.yState.parent.append(self.mState)
+		self.yState.parent.append(self.wState)
 		
 		self.transMatrix = []
-		self.transMatrix.append([0, self.gapOpenProb, self.gapOpenProb, 1 - 2*self.gapOpenProb]) 
-		self.transMatrix.append([1-settings.EPSILON, settings.EPSILON, 0, 0])
-		self.transMatrix.append([1-settings.EPSILON, 0, settings.EPSILON, 0])
-		self.transMatrix.append([1, 0, 0, 0])
-		#print "waiting state out prob:"
-		#print self.wState.outFreq
+		self.transMatrix.append([0, self.gapOpenProb, self.gapOpenProb, 1 - 2 * self.gapOpenProb])
+		self.transMatrix.append([0, settings.EPSILON, 0, 1 - settings.EPSILON])
+		self.transMatrix.append([0, 0, settings.EPSILON, 1 - settings.EPSILON])
+		self.transMatrix.append([0, self.gapOpenProb, self.gapOpenProb, 1 - 2 * self.gapOpenProb])
+
 	
 	def generateSeq(self, rootOrLen):
 		children1 = seqDNA("%s_%d:%.4f"%(self.left, self.rep, self.time1))
@@ -301,44 +270,38 @@ class pHMM:
 			
 		siteNum = rLen
 		preState = "W"
+		a = None
 		while seqLen < rLen:
 			site = []
 			stateType = curState.stateType
-			if "D" != stateType:
-				preState = stateType
+
 			if None != rN:
-				if settings.GAP != rN.seq[seqLen]:
-                        		a = curState.emission(self.time1, self.time2, rN.seq[seqLen])
-					curState = curState.nextState()
-					site = rN.site[seqLen]
-				else:
-					a = (settings.GAP, settings.GAP)
+				a = curState.emission(self.time1, self.time2, rN.seq[seqLen])
 			else:
 				a = curState.emission(self.time1, self.time2)
-				curState = curState.nextState()
-                        if None != a:
+
+			nextState = curState.nextState()
+			if None != a:
 				seqLen += 1
-				if "M" == stateType:
-					self.matchNum += 1
-					#seqLen += 1
-					subSiteNum += 1
-					if a[0] != a[1]:
-						self.observedDif += 1
 				if None != rN:
-					if "M" != stateType:
-						siteNum += 1  
+					if settings.GAP != rN.seq[seqLen] and "M" != stateType:
+						siteNum += 1
 						children1.insertSeq(a[0], siteNum)
 						children2.insertSeq(a[1], siteNum)
-						continue
 				else:
-					children1.insertSeq(a[0], site)
-					children2.insertSeq(a[1], site)
+					children1.insertSeq(a[0], site) 
+					children2.insertSeq(a[1], site) 
 
-			if seqLen < rLen and "W" == preState and ( "X" == curState.stateType or "Y" ==curState.stateType):
+				if "M" == stateType:
+					self.matchNum += 1
+					if a[0] != a[1]:
+						self.observedDif += 1
+
+			if seqLen < rLen and nextState != curState and ("X" == nextState.stateType or "Y" == nextState.stateType):
 				self.indelNum += 1
+			curState = nextState
 
-		self.observedDif = (1.0 * self.observedDif) / subSiteNum
-		
+		self.observedDif = (1.0 * self.observedDif) / self.matchNum
 		return (children1, children2)	
 
 	@staticmethod	
@@ -466,22 +429,22 @@ class pHMM:
 
 						if "X" == state.stateType:
 							yIndex = j
-						if "Y" != state.stateType:
-							maxPreScore = getValue(scoreMatrix, state.stateType, yIndex) + log(state.inFreq[0])
-						else:
-							maxPreScore = a[stateArr.index(self.yState)] + log(state.inFreq[0])
-						tempPointer = state.stateType
-						for stateIndex in range(len(self.dummyState.parent)):
-							stateType = self.dummyState.parent[stateIndex].stateType
+						maxPreScore = mInf
+						tempPointer = None
+
+						for stateIndex in range(len(state.parent) - 1):
+							stateType = state.parent[stateIndex].stateType
 							if "Y" != state.stateType:
-								tempProb = getValue(scoreMatrix, stateType, yIndex) + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+								tempProb = getValue(scoreMatrix, stateType, yIndex) + log(state.inFreq[stateIndex])
 							else:
-								tempProb = a[stateIndex] + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+								tempProb = a[stateIndex] + log(state.inFreq[stateIndex])
+
 							if tempProb > maxPreScore:
 								tempPointer = stateType
 								maxPreScore = tempProb
 
 						pointerMatrix[state.stateType][i][j] = tempPointer
+
 						if (i > 0 and j > 0) or (i > 0 and "X" == state.stateType) or (j > 0 and "Y" == state.stateType):		
 							s[stateArr.index(state)] = eProb(state, seqX[i-1], seqY[j-1]) + maxPreScore
 						else:
@@ -507,24 +470,27 @@ class pHMM:
 		y = alignment[1].seq
 		score = 0
 		preState = 0
-		stateArr = [self.xState, self.yState, self.mState]
-		scoreArr = []
+		stateArr = [self.wState, self.xState, self.yState, self.mState]
 		
 		for index in range(alignment[0].length):
-			curState = 2
+			curState = 3
 			if settings.GAP == x[index]:#yState
-				curState = 1
+				curState = 2
 			elif settings.GAP == y[index]:#xState 
-				curState = 0
-			score += math.log(self.wState.outFreq[curState])
+				curState = 1
 			score += eProb(stateArr[curState], x[index], y[index])
-			if 0 != index and 2 != curState:
+			if 0 == index:
+				score += math.log(stateArr[preState].outFreq[curState - 1])	
+			else:
 				if preState == curState:
-					score += math.log(stateArr[curState].inFreq[0]) 
+					score += math.log(stateArr[preState].outFreq[0])
 				else:
-					score += math.log(self.dummyState.inFreq[preState])
-			scoreArr.append(score)	
+					if "M" == preState:
+						score += math.log(stateArr[preState].outFreq[curState])
+					else:
+						score += math.log(stateArr[preState].outFreq[1])
 			preState = curState
+
 		return score
 
 	def setStateDistribution(self):
@@ -537,8 +503,9 @@ class pHMM:
 
 	def getExpectedInDel(self):
 		self.setStateDistribution()
+		mStateNum = settings.LENGTH / (sum(self.stateDistr[1:])) * self.stateDistr[1]
 		wStateNum = settings.LENGTH / (sum(self.stateDistr[1:])) * self.stateDistr[0]
-		return (wStateNum * sum(self.transMatrix[0][1:3]))
+		return (wStateNum * sum(self.transMatrix[0][1:3]) + mStateNum * sum(self.transMatrix[3][1:3]))
 
 	def getExpectedMatch(self):
 		if None == self.stateDistr:
