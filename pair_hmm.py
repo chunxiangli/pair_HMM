@@ -301,7 +301,7 @@ def runIndelible(start, step, times, subRate, length):
 	observedDif = []
 	os.system("./runIndelible %f %f %d %f %d>>log.txt"%(start, step, times, subRate, length))
 	for i in range(times):
-		iF = "%s/output%.3f.fas"%(settings.InDelibaleDataDir, (start + i*step)/2)
+		iF = "%s/output%.3f.fas"%(settings.IndelibleDataDir, (start + i*step)/2)
 		inFile = open(iF, 'r')
 		s = inFile.readline()
 		sequences = []
@@ -408,6 +408,8 @@ def checkAccuracySimulation():
 		indelDif = runIndelible(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
 		#phylosimDif = runPhylosim(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
       		
+		print eInDel
+		print eMatch
 		if 1 != settings.ITERATE:
 			t = np.array(t)
 			oDReal = np.array(d)

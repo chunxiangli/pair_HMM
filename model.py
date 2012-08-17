@@ -187,7 +187,7 @@ class State:
 			return self.children[randomIndex(self.outFreq)]
 #empty for dummystate
 
-def openGapProb(t): return 0#(1- math.exp(-settings.INDEL * (t))) 
+def openGapProb(t): return (1- math.exp(-settings.INDEL * (t))) 
 class pHMM:
 	gapOpenProb = 1	
 	
@@ -397,71 +397,49 @@ class pHMM:
 			Initial the matrix for score and pointer used to traceback the path.
 		'''
 		mInf = float('-Inf')
-		wMatrix = [mInf for j in range(yRange)]
+		wMatrix = [[mInf for j in range(yRange)] for i in range(xRange)]
 		scoreMatrix = {"X": copy.deepcopy(wMatrix), "Y": copy.deepcopy(wMatrix), "M": copy.deepcopy(wMatrix)}
 
 		pMatrix = [[ 0 for j in range(yRange)] for i in range(xRange)]
 		pointerMatrix = {"X": copy.deepcopy(pMatrix), "Y": copy.deepcopy(pMatrix), "M": copy.deepcopy(pMatrix)}
 
 		# The initial value 
-		scoreMatrix["M"][0] = 0
+		scoreMatrix["M"][0][0] = 0
 		pointerMatrix["M"][0][0] = "start"
 
 
 		stateArr = [self.xState, self.yState, self.mState]
 
-		def getValue(scoreMatrix,stateType,j):
-			if j < 0:
-				return float("-Inf")
-			else:
-				return scoreMatrix[stateType][j]
 
-		stateNum = len(stateArr)
-		a = [mInf, mInf, 0]
-		s = [0 for i in range(stateNum)]
-		for i in range(xRange):
-			for j in range(yRange):
-				if i != 0 or j != 0:
-					maxScore = mInf
-					#update the score and pointer matrix
-					for state in stateArr:
-						yIndex = j - 1
-
-						if "X" == state.stateType:
-							yIndex = j
-						maxPreScore = mInf
-						tempPointer = None
-
-						for stateIndex in range(len(state.parent) - 1):
-							stateType = state.parent[stateIndex].stateType
-							if "Y" != state.stateType:
-								tempProb = getValue(scoreMatrix, stateType, yIndex) + log(state.inFreq[stateIndex])
-							else:
-								tempProb = a[stateIndex] + log(state.inFreq[stateIndex])
-
-							if tempProb > maxPreScore:
-								tempPointer = stateType
-								maxPreScore = tempProb
-
-						pointerMatrix[state.stateType][i][j] = tempPointer
-
-						if (i > 0 and j > 0) or (i > 0 and "X" == state.stateType) or (j > 0 and "Y" == state.stateType):		
-							s[stateArr.index(state)] = eProb(state, seqX[i-1], seqY[j-1]) + maxPreScore
-						else:
-							s[stateArr.index(state)] = mInf + maxPreScore 	
-
-					if j > 0:
-						for stateIndex in range(stateNum):
-							scoreMatrix[stateArr[stateIndex].stateType][j-1] = a[stateIndex]
-
-					a = copy.deepcopy(s)
-
-			#the last cell in the row
-			for stateIndex in range(stateNum):	
-				scoreMatrix[stateArr[stateIndex].stateType][yRange-1] = a[stateIndex]
-
-			a = [mInf for i in range(stateNum)]
-
+		for i in range(1, xRange):
+			for j in range(1, yRange):
+				for state in stateArr:
+					xIndex = i - 1
+					yIndex = j - 1
+					if "X" == state.stateType:
+						yIndex += 1
+					elif "Y" == state.stateType:
+						xIndex += 1
+					maxScore = scoreMatrix[state.stateType][xIndex][yIndex] + log(state.inFreq[0])
+					tempPointer = state.stateType
+					for stateIndex in range(1, len(state.parent)-1):
+						stateType = state.parent[stateIndex].stateType
+						tempScore = scoreMatrix[stateType][xIndex][yIndex] + log(state.inFreq[stateIndex])
+						if tempScore > maxScore:
+							maxScore = tempScore
+							tempPointer = stateType
+				
+					scoreMatrix[state.stateType][i][j] = eProb(state, seqX[i-1], seqY[j-1]) + maxScore 
+					pointerMatrix[state.stateType][i][j] = tempPointer
+		'''
+		for p in pointerMatrix:
+			print p
+			for i in range(xRange):
+				print pointerMatrix[p][i]
+		'''
+		s = []
+		for state in stateArr:
+			s.append(scoreMatrix[state.stateType][xRange-1][yRange-1])
 		return self.optimalAlignment(seq, s, pointerMatrix)
 	
 	def getProbability(self, alignment):
@@ -503,8 +481,8 @@ class pHMM:
 
 	def getExpectedInDel(self):
 		self.setStateDistribution()
-		mStateNum = settings.LENGTH / (sum(self.stateDistr[1:])) * self.stateDistr[1]
-		wStateNum = settings.LENGTH / (sum(self.stateDistr[1:])) * self.stateDistr[0]
+		mStateNum = settings.LENGTH / sum(self.stateDistr[1:]) * self.stateDistr[3]
+		wStateNum = settings.LENGTH / sum(self.stateDistr[1:]) * self.stateDistr[0]
 		return (wStateNum * sum(self.transMatrix[0][1:3]) + mStateNum * sum(self.transMatrix[3][1:3]))
 
 	def getExpectedMatch(self):
