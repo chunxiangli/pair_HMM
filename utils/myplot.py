@@ -72,7 +72,7 @@ def plotAlignmentResult(t, accuracy, realTime, fileName, title, indel=None, yLab
 	if 'accuracy' == yLabel:
         	pyplot.ylim(np.array(accuracy).min()-0.01, np.array(accuracy).max()+0.01)
 	else:
-		pyplot.ylim(np.array(accuracy).min(), np.array(accuracy).max()+10)
+		pyplot.ylim(np.array(accuracy).min(), np.array(accuracy).max()+2)
 	'''
         pyplot.ylim(np.array(accuracy).min()-0.1, 1)
         maxAcc = np.array(accuracy).max()

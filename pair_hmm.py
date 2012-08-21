@@ -193,11 +193,9 @@ def pairAlignmentWithSpecificParameters(param):
 	alignment = copy.deepcopy(sequences)
 	for c in alignment: c.removeGap()
 	(alignment, score) = pair_hmm.alignSeq(alignment)	
-	'''
 	if param[1]:
 		pHmm = pHMM(realTime1, realTime2)
 		score = pHmm.getProbability(alignment)
-	'''
 	accuracy = fidelity(sequences, alignment)
 	#np.savetxt("%s/substitutionMatrix_%.2f"%(os.path.dirname(settings.IN_FILE), settings.TIME), np.array(dnaModelJC69.eMatrix), fmt="%.5f")
 	return [accuracy, alignment, score]

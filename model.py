@@ -187,7 +187,7 @@ class State:
 			return self.children[randomIndex(self.outFreq)]
 #empty for dummystate
 
-def openGapProb(t): return (1- math.exp(-settings.INDEL * (t))) 
+def openGapProb(t): return 0.1#(1- math.exp(-settings.INDEL * (t))) 
 class pHMM:
 	gapOpenProb = 1	
 	
@@ -463,7 +463,7 @@ class pHMM:
 				if preState == curState:
 					score += math.log(stateArr[preState].outFreq[0])
 				else:
-					if "M" == preState:
+					if 3 == preState:
 						score += math.log(stateArr[preState].outFreq[curState])
 					else:
 						score += math.log(stateArr[preState].outFreq[1])
