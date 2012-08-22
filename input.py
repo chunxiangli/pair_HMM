@@ -28,7 +28,8 @@ def readArgv(argv):
 	}
 	stringArguments = {
 		'tree': 'TREE',
-		'id' : 'ID'
+		'id' : 'ID',
+		'm' : 'MODEL'
 	}
 	boolArguments = {
 		'acheck': 'ACHECK',
@@ -46,13 +47,19 @@ def readArgv(argv):
 		elif key in floatArguments:
 			settings.__dict__[floatArguments[key]] = float(value)
 		elif key in fileArguments:
-			sDir = os.path.splitext(value)[0]
-			if not os.path.exists("./data/%s"%(sDir)):
-				os.system("mkdir ./data/%s"%(sDir))
-			if None != settings.ID:
-				settings.__dict__[fileArguments[key]]  = '%s/%s/%s/%s_%s%s'%(settings.ROOT, 'data', sDir, os.path.splitext(value)[0], settings.ID, os.path.splitext(value)[1])
+			if len(re.findall(r'/', value)) and os.path.exists("./data/%s"%(value.split('/')[0])):
+				if None != settings.ID:
+					settings.__dict__[fileArguments[key]] = '%s/data/%s_%s%s'%(settings.ROOT, os.path.splitext(value)[0], settings.ID, os.path.splitext(value)[1])
+				else:
+					settings.__dict__[fileArguments[key]] = '%s/data/%s'%(settings.ROOT, value)
 			else:
-				settings.__dict__[fileArguments[key]]  = '%s/%s/%s/%s'%(settings.ROOT, 'data', sDir, value)
+				sDir = os.path.splitext(value)[0]
+				if not os.path.exists("./data/%s"%(sDir)):
+					os.system("mkdir ./data/%s"%(sDir))
+				if None != settings.ID:
+					settings.__dict__[fileArguments[key]]  = '%s/data/%s/%s_%s%s'%(settings.ROOT, sDir, os.path.splitext(value)[0], settings.ID, os.path.splitext(value)[1])
+				else:
+					settings.__dict__[fileArguments[key]]  = '%s/data/%s/%s'%(settings.ROOT, sDir, value)
 		elif key in stringArguments:
 			settings.__dict__[stringArguments[key]] = value.strip()
 		elif key in boolArguments:

@@ -16,6 +16,7 @@ from get_free_nodes import get_free_nodes
 # parse command lien arguments
 parser = optparse.OptionParser(version = "%prog 1.1 on 23.07.2012 by Chunxiang Li", description = "python script for multiple thread pair-wise alignment")
 parser.add_option("-i", "--in", dest="ifname", default="example.fas", help="result file name for simulation, and input file name for alignment at the same time")
+parser.add_option("-o", "--out", dest="ofname", default="example.fas", help="result directory name")
 parser.add_option("-a","--a", dest="indel", default="0.1", help="indel rate for insertion and deletion events")
 parser.add_option("-e", "--e", dest="extension", default="0.4", help="gap extension probability")
 parser.add_option("-l", "--l", dest="Lambda", default="1", help="substitution rate per unit time")
@@ -23,9 +24,9 @@ parser.add_option("-g", "--g", dest="gamma", default="0", help="gap extension pr
 parser.add_option("-s", "--slen", dest="length", default="100", help="result alignment length")
 parser.add_option("-r", "--rep", dest="rep", default="10", help="replicate num")
 parser.add_option("-d", "--dtree", dest="tree", default="(A:0.1,B:0.1)", help="replicate num")
-parser.add_option("-m", "--max", dest="max_thread", default="5", help="average load(thread per node in cluster)")
+parser.add_option("-m", "--model", dest="model", default="Durbin", help="alignment model name")
 (options, arguments) = parser.parse_args()
-max_thread = int(options.max_thread)
+max_thread = 5#int(options.max_thread)
 cpu_num = multiprocessing.cpu_count()
 seq_num = int(options.rep)
 max_node = 130 
@@ -57,7 +58,7 @@ def single_thread(node, job):
 	(job_id, t, block_id) = job
 	print("%s->%s %.2f %d"%(node, job_id, t, block_id))
 	try:
-		accuracy = commands.getoutput('''ssh -o StrictHostKeyChecking=no %s 'cd Documents/IB/pair_HMM/;./pair_hmm.py len=%s t=%.2f a=%s e=%s g=%s l=%s rep=%s tree="%s" id=%d in=%s alignment=1' '''%(node,  options.length, t, options.indel, options.extension, options.gamma, options.Lambda, options.rep, options.tree, block_id, options.ifname))
+		accuracy = commands.getoutput('''ssh -o StrictHostKeyChecking=no %s 'cd Documents/IB/pair_HMM/;./pair_hmm.py len=%s t=%.2f a=%s e=%s g=%s l=%s rep=%s id=%d in=%s out=%s m=%s alignment=1' '''%(node,  options.length, t, options.indel, options.extension, options.gamma, options.Lambda, options.rep, block_id, options.ifname, options.ofname, options.model))
 		os.system("echo '-->realignment job %d_%d end on node %s' >>%s"%(job_id, block_id,  node, logFile))
 		os.system("echo '%s' > %s/result_for_%s_%d_with_t%.2f"%(accuracy, dataDir, os.path.splitext(options.ifname)[0], block_id, t))
 	except:
@@ -66,6 +67,7 @@ def single_thread(node, job):
 	pass
 
 def simulationAndRealignment():
+	'''
 	#simulation
 	print "start simulation"
 	os.system("echo 'start simulation' > %s"%(logFile))
@@ -74,14 +76,15 @@ def simulationAndRealignment():
 		if (block_id + 1) * block_size > seq_num:
 			block_size = seq_num - block_id * block_size 
 		os.system("./pair_hmm.py len=%s a=%s e=%s g=%s l=%s rep=%d tree='%s' id=%d in=%s simul=1>> %s"%(options.length, options.indel, options.extension, options.gamma, options.Lambda, block_size, options.tree, block_id, options.ifname, logFile))
+	'''
 	#realignment
 	#get job queue
-	t_range = 56 
+	t_range = 12 
 	print "get the job queue"
 	job_id = 0
 	for i in range(t_range):
 		for j in range(block):
-			job_queue.put((job_id, 0.05 + 0.01 * i, j))
+			job_queue.put((job_id, 0.05 + 0.05 * i, j))
 			job_id += 1
 	#processing
 	job_size = job_queue.qsize()
@@ -122,7 +125,7 @@ def simulationAndRealignment():
 		acc = []
 		lScore = []
 		for j in range(block):
-			jobFName = "%s/result_for_%s_%d_with_t%.2f"%(dataDir, os.path.splitext(options.ifname)[0], j, 0.05+0.01*i)
+			jobFName = "%s/result_for_%s_%d_with_t%.2f"%(dataDir, os.path.splitext(options.ifname)[0], j, 0.05+0.05*i)
 			s = commands.getoutput("tail -1 %s |tr -d '(|)|'|tr ',' ' '"%(jobFName))
 			s = s.split()
 			acc.append(float(s[0]))

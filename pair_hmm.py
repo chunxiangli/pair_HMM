@@ -120,7 +120,11 @@ def pairSimulation(outFile, plot=False):
 		t1 = float(t1)
 		t2 = float(t2)
 		settings.TIME = t1 + t2
-	pair_hmm = pHMM(t1, t2, left, right)
+	pair_hmm = None
+	if "Durbin" == settings.MODEL:
+		pHMM(t1, t2, left, right)
+	elif "aModel" == settings.MODEL:
+		pair_hmm = PAGAN(t1, t2, left, right)
 	#np.savetxt('%s/substitutionMatrix'%(os.path.dirname(settings.IN_FILE)), np.array(dnaModelJC69.eMatrix), fmt="%.5f")	
 	p = []
 	indelArr = []
@@ -142,33 +146,7 @@ def pairSimulation(outFile, plot=False):
 		xlabel = "Replicate Sequence"
 		title = "Simulation(a=%.3f,e=%.3f,l=%.2f,g=%.2f)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA)
         	plotSimulationResult(np.arange(settings.REPLICATE), t1+t2, d2t(p2d(np.array(p))), None, eInDel, np.array(indelArr), eMatch, np.array(matchArr), xlabel, fName, title)
-'''
-def readPairSequences(inFile, num=1):
-	pairArr = []
-	for i in range(num): 
-		s = inFile.readline()
-		sequences = []
-		for j in range(2):
-			while '' != s and '>' != s[0]: s=inFile.readline()
-			if '' == s:
-				print "There isn\'t sequence in the fasta file %s."%(settings.IN_FILE)
-				inFile.close()
-				sys.exit(0)
-			name = s[1:].split('|')[0]
-			seq = ''
-			s = inFile.readline()
-			while '' != s and '>' != s[0]:
-				seq += s
-				s = inFile.readline()
-			if '' == s and '' == seq:
-				print "There isn\'t sequence in the fasta file %s."%(settings.IN_FILE)
-				inFile.close()
-				sys.exit(0)
-			sequences.append(seqDNA(name, re.sub(r'\n', '', seq)))
-		inFile.seek(inFile.tell() - len(s))
-		pairArr.append(sequences[:])
-	return pairArr
-'''
+
 def readPairSequences(inFile, num=1):
 	pairArr = []
 	sequences = []
@@ -189,7 +167,11 @@ def pairAlignmentWithSpecificParameters(param):
 	if not param[1]:
 		t1 = realTime1
 		t2 = realTime2
-	pair_hmm = pHMM(t1, t2)
+	pair_hmm = None
+	if "Durbin" == settings.MODEL:
+		pair_hmm = pHMM(t1, t2)
+	elif "aModel" == settings.MODEL:
+		pair_hmm = PAGAN(t1, t2)
 	alignment = copy.deepcopy(sequences)
 	for c in alignment: c.removeGap()
 	(alignment, score) = pair_hmm.alignSeq(alignment)	
@@ -218,7 +200,7 @@ def realignment(inFile, outFile, reset=False):
 def alignmentWithSpecificDistance(t):
         f1 = open(settings.IN_FILE, 'r')
         settings.TIME = t
-        f2 = open("%s/alignment_over_%s"%(os.path.dirname(settings.IN_FILE), re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
+        f2 = open("%s/alignment_over_%s"%(os.path.dirname(settings.OUT_FILE), re.sub(r'\.fas$', '_with_a%.2f_and_t%.2f.fas'%(settings.INDEL, settings.TIME), os.path.basename(settings.IN_FILE))),'w')
         (accArr, scoreArr) = realignment(f1, f2, True)
 	#print accArr
 	#print scoreArr
@@ -242,7 +224,7 @@ def simulationAndAlignmentWithVariantDistance(plot=False):
 		
 		if plot:
 			tmpS = "(a=%.3f,e=%.3f,l=%.2f,g=%.2f, len=%d, rep=%d)"%(settings.INDEL, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
-			fName = "alignmentWithVariantDistance_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
+			fName = "%s_alignmentWithVariantDistance_over_%s.png"%(settings.MODEL, re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 			title = "Alignment%s"%(tmpS)
 			plotAlignmentResult(t, [accuracy], realTime ,fName, title)
 
@@ -291,7 +273,7 @@ def checkAlignmentParameters():
 		accuracy.append(acc[:])
 	print "time using:%.3gs"%(time.time()-start)
 	tmpS = "(t%.3f,a%.3f,e%.3f,l%.3f,g%.3f,len%d,rep%d)"%(realTime, indel, settings.EPSILON, settings.LAMBDA, settings.GAMMA, settings.LENGTH, settings.REPLICATE)
-	fName = "alignmentOverVariantParameters_over_%s.png"%(re.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
+	fName = "%s_alignmentOverVariantParameters_over_%s.png"%(settings.MODEL, e.sub(r'\.fas', '', os.path.basename(settings.IN_FILE)))
 	title = "Alignment%s"%(tmpS)
 	plotAlignmentResult(tArr, accuracy, realTime ,fName, title, indelArr)
 
@@ -372,10 +354,10 @@ def checkAccuracySimulation():
 	accuracy = []
 	meanEstimateDistance = 0
 	meanAccuracy = 0
-	localIter = 20 
+	localIter = settings.REPLICATE 
 	try:
 		start = settings.TIME
-		f1 = open(settings.IN_FILE, 'w')
+		#f1 = open(settings.IN_FILE, 'w')
 		for i in range(settings.ITERATE):
 			t.append(settings.TIME)
 			sumD = 0
@@ -384,17 +366,26 @@ def checkAccuracySimulation():
 			matchArr = []
 
 			pair_hmm = pHMM(settings.TIME/2, settings.TIME/2, "A", "B")
-
-			for j in range(localIter):
-        			children  = pair_hmm.generateSeq(settings.LENGTH)
-        			printFastaFile(children, f1)
-				p = pair_hmm.observedDif
-				if p >= 0.75:
-					wIter += 1
-				else:
-					sumD += p2d(p)	
-				indelArr.append(pair_hmm.indelNum)
-				matchArr.append(pair_hmm.matchNum)
+			
+			chunkSize = localIter / (5 * 16)	
+			if chunkSize * 5 * 16 < localIter:
+				chunkSize += 1
+			s = 0
+			for k in range(chunkSize):
+				f1 = open(re.sub(r'\.fas', '_t%.2f_%d.fas'%(settings.TIME, k), settings.IN_FILE), 'w')
+				for j in range(80):
+					if s < localIter:
+        					children  = pair_hmm.generateSeq(settings.LENGTH)
+        					printFastaFile(children, f1)
+						p = pair_hmm.observedDif
+						if p >= 0.75:
+							wIter += 1
+						else:
+							sumD += p2d(p)	
+						indelArr.append(pair_hmm.indelNum)
+						matchArr.append(pair_hmm.matchNum)
+					s += 1
+				f1.close()
 
 			eInDel.append(pair_hmm.getExpectedInDel())
 			indel.append(np.array(indelArr).mean())
@@ -402,12 +393,10 @@ def checkAccuracySimulation():
 			eMatch.append(pair_hmm.getExpectedMatch())
 			d.append(sumD/(localIter - wIter))
 			settings.TIME += settings.STEP		
-		f1.close()
+
 		indelDif = runIndelible(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
 		#phylosimDif = runPhylosim(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
       		
-		print eInDel
-		print eMatch
 		if 1 != settings.ITERATE:
 			t = np.array(t)
 			oDReal = np.array(d)

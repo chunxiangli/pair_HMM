@@ -483,10 +483,207 @@ class pHMM:
 		self.setStateDistribution()
 		mStateNum = settings.LENGTH / sum(self.stateDistr[1:]) * self.stateDistr[3]
 		wStateNum = settings.LENGTH / sum(self.stateDistr[1:]) * self.stateDistr[0]
-		return (wStateNum * sum(self.transMatrix[0][1:3]) + mStateNum * sum(self.transMatrix[3][1:3]))
+		return wStateNum * sum(self.transMatrix[0][1:3]) + mStateNum * sum(self.transMatrix[3][1:3])
 
 	def getExpectedMatch(self):
 		if None == self.stateDistr:
 			self.setStateDistribution()
-		return (settings.LENGTH * (self.stateDistr[3] / sum(self.stateDistr[1:])))
+		return  settings.LENGTH * (self.stateDistr[3] / sum(self.stateDistr[1:]))
+
+class PAGAN(pHMM):
+	def stateInit(self):
+		self.dummyState = State([], [1 - settings.EPSILON, 1- settings.EPSILON, 1 - settings.GAMMA], [None],[1.0], eModel) 
+		self.xState = State([], [settings.EPSILON, self.gapOpenProb] ,[None, self.dummyState], [settings.EPSILON ,1-settings.EPSILON], xInsertModel, "X")
+		self.xState.children[0] = self.xState
+		self.xState.parent.append(self.xState)
+
+
+		self.yState = State([], [settings.EPSILON, self.gapOpenProb], [None, self.dummyState], [settings.EPSILON, 1-settings.EPSILON], yInsertModel, "Y")
+		self.yState.children[0] = self.yState
+		self.yState.parent.append(self.yState)
+
+	
+		self.mState = State([], [settings.GAMMA, 1 - 2 * self.gapOpenProb], [None, self.dummyState], [settings.GAMMA, 1-settings.GAMMA], dnaModelJC69, "M")
+		self.mState.children[0] = self.mState
+		self.mState.parent.append(self.mState)
+
+
+		self.dummyState.parent.append(self.xState)
+		self.dummyState.parent.append(self.yState)
+		self.dummyState.parent.append(self.mState)
+		
+		
+		self.wState = State([None], [1], [self.xState, self.yState, self.mState],[self.gapOpenProb, self.gapOpenProb, 1-2*self.gapOpenProb], eModel, "W")
+
+		self.dummyState.children[0] = self.wState
+		self.wState.parent[0] = self.dummyState
+		
+		self.xState.parent.append(self.wState)
+		self.yState.parent.append(self.wState)
+		self.mState.parent.append(self.wState)
+		
+		self.transMatrix = []
+		self.transMatrix.append([0, self.gapOpenProb, self.gapOpenProb, 1 - 2*self.gapOpenProb]) 
+		self.transMatrix.append([1-settings.EPSILON, settings.EPSILON, 0, 0])
+		self.transMatrix.append([1-settings.EPSILON, 0, settings.EPSILON, 0])
+		self.transMatrix.append([1, 0, 0, 0])
+
+	@staticmethod	
+	def optimalAlignment(seq, score, pointer):
+		x = seq[0]
+		y = seq[1]
+		xLen = len(x.seq)
+		yLen = len(y.seq)	
+		alignedX = seqDNA(x.name)
+		alignedY = seqDNA(y.name)
+		pHMM.observedDif = 0
+		subSiteNum = 0
+		# backtrack start point
+		xIndex = xLen
+		yIndex = yLen
+		optimalState = ""
+		optimalScore = 0
+
+		if score[0] > score[1]:
+			optimalState = "X"
+			optimalScore = score[0]
+			if score[0] < score[2]:
+				optimalState = "M"
+				optimalScore = score[2]
+		else:
+			optimalState = "Y"
+			optimalScore = score[1]
+			if score[1] < score[2]:
+				optimalState = "M"
+				optimalScore = score[2]
+			
+		#print "The optimal alignment with log probability %f"%(optimalScore)
+
+		while xIndex > 0 and yIndex > 0:
+			nextState = pointer[optimalState][xIndex][yIndex]	
+			if "X" == optimalState:
+				xIndex -= 1
+				alignedX.insertSeq(x.seq[xIndex], x.site[xIndex])
+				alignedY.insertSeq('-', 0)
+			elif "Y" == optimalState:
+				yIndex -= 1
+				alignedX.insertSeq('-',0)
+				alignedY.insertSeq(y.seq[yIndex], y.site[yIndex])
+			elif "M" == optimalState:
+				xIndex -= 1
+				yIndex -=1
+				alignedX.insertSeq(x.seq[xIndex], x.site[xIndex])
+				alignedY.insertSeq(y.seq[yIndex],y.site[yIndex])
+				subSiteNum += 1
+				if x.seq[xIndex] != y.seq[yIndex]:
+					pHMM.observedDif += 1
+			optimalState = nextState
+
+		if xIndex > 0:
+			alignedX.insertSeq(x.seq[:xIndex][::-1],x.site[:xIndex][::-1])
+			alignedY.insertSeq('-'*xIndex, [0 for i in range(xIndex)])
+		elif yIndex > 0:
+			alignedY.insertSeq(y.seq[:yIndex][::-1], y.site[:yIndex][::-1])
+			alignedX.insertSeq('-'*yIndex, [0 for i in range(yIndex)])
+		if 0 != subSiteNum:
+			pHMM.observedDif = (1.0 * pHMM.observedDif)/subSiteNum
+		alignedX.seq = alignedX.seq[::-1]
+		alignedY.seq = alignedY.seq[::-1]
+		alignedX.site = alignedX.site[::-1]
+		alignedY.site = alignedY.site[::-1]
+
+		return ([alignedX, alignedY], optimalScore)
+		
+	def alignSeq(self, seq):
+		eProb = lambda state,x,y: state.emissionProb(x,y,self.time1, self.time2)
+		seqX = seq[0].seq
+		seqY = seq[1].seq
+
+		if len(seqX) < 1 or len(seqY) < 1:
+			print "At least one sequence is empty."
+			sys.exit(0)
+
+		xRange = len(seqX) + 1
+		yRange = len(seqY) + 1
+
+		def log(x):
+			if x <= 0:
+				return float("-inf")
+			else:
+				return math.log(x)	
+
+		'''
+			Initial the matrix for score and pointer used to traceback the path.
+		'''
+		mInf = float('-Inf')
+		wMatrix = [[mInf for j in range(yRange)] for i in range(xRange)]
+		scoreMatrix = {"X": copy.deepcopy(wMatrix), "Y": copy.deepcopy(wMatrix), "M": copy.deepcopy(wMatrix)}
+
+		pMatrix = [[ 0 for j in range(yRange)] for i in range(xRange)]
+		pointerMatrix = {"X": copy.deepcopy(pMatrix), "Y": copy.deepcopy(pMatrix), "M": copy.deepcopy(pMatrix)}
+
+		# The initial value
+		scoreMatrix["M"][0][0] = 0
+		pointerMatrix["M"][0][0] = "start"
+
+
+		stateArr = [self.xState, self.yState, self.mState]
+		
+		for i in range(1, xRange):
+			for j in range(1, yRange):
+				for state in stateArr:
+					xIndex = i - 1
+					yIndex = j - 1
+					if "X" == state.stateType:
+						yIndex += 1
+					elif "Y" == state.stateType:
+						xIndex += 1
+					maxScore = scoreMatrix[state.stateType][xIndex][yIndex] + log(state.inFreq[0])
+					tempPointer = state.stateType
+					for stateIndex in range(len(self.dummyState.parent)):
+						stateType = self.dummyState.parent[stateIndex].stateType
+						tempScore = scoreMatrix[stateType][xIndex][yIndex] + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+						if tempScore > maxScore:
+							maxScore = tempScore
+							tempPointer = stateType
+					scoreMatrix[state.stateType][i][j] = eProb(state, seqX[i-1], seqY[j-1]) + maxScore
+					pointerMatrix[state.stateType][i][j] = tempPointer
+		s = []
+		for state in stateArr:
+			s.append(scoreMatrix[state.stateType][xRange - 1][yRange - 1])
+			
+		return self.optimalAlignment(seq, s, pointerMatrix)
+
+	def getProbability(self, alignment):
+		eProb = lambda state,a,b: state.emissionProb(a, b, self.time1, self.time2)
+		x = alignment[0].seq
+		y = alignment[1].seq
+		score = 0
+		preState = 0
+		stateArr = [self.xState, self.yState, self.mState]
+		
+		for index in range(alignment[0].length):
+			curState = 2
+			if settings.GAP == x[index]:
+				curState = 1
+			elif settings.GAP == y[index]: 
+				curState = 0
+			score += eProb(stateArr[curState], x[index], y[index])
+			if 0 == index:
+				score += math.log(self.wState.outFreq[curState])
+			else:
+				if preState != curState:
+					score += math.log(self.dummyState.inFreq[preState])
+					score += math.log(self.wState.outFreq[curState])
+				elif 2 == curState:
+					score += math.log(self.wState.outFreq[curState])
+				else:
+					score += math.log(stateArr[curState].inFreq[0])
+			preState = curState
+		return score
+
+	def getExpectedInDel(self):
+		self.setStateDistribution()
+		wStateNum = settings.LENGTH / (sum(self.stateDistr[1:])) * self.stateDistr[0]
+		return (wStateNum * sum(self.transMatrix[0][1:3]))
 

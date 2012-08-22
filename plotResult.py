@@ -23,9 +23,9 @@ f = open(ifname, 'r')
 s = f.read()
 result = [ float(i) for i in s.strip().split()]
 f.close()
-t = [ 0.05 + 0.01 * i for i in range(56)]
+t = [ 0.05 + 0.05 * i for i in range(12)]
 fName = 'alignmentWithVariantDistance_over_%s.png'%(options.dataDir)
-title = 'alignment(a=%s, e=%s, l=%s, g=%s, len=%s, rep=%s)'%(options.indel, options.extension, options.gamma, options.Lambda, options.length, options.rep)
+title = 'alignment(a=%s, e=%s, l=%s, g=%s, len=%s, rep=%s)'%(options.indel, options.extension, options.Lambda, options.gamma, options.length, options.rep)
 plotAlignmentResult(t, [result], float(options.time), fName, title)
 #plot probability score
 ifname = "%s/data/%s/finalScore"%(ROOT, options.dataDir)

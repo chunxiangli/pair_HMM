@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot
+from matplotlib.ticker import FuncFormatter
 
 def plotDistance(t, eTReal, oTReal, oIndelibleDif=None, oPhylosimDif=None):
 	#colorCycle = ['black', 'red', 'blue']

@@ -14,18 +14,18 @@ BASE = ['T','C','A','G']
 LENGTH = 20
 
 #default model JC69
-LAMBDA = 0.1
+LAMBDA = 1
 
-MODEL = "JC69"
+MODEL = "Durbin"
 
 '''
 	parameters of transition matrix
 '''
 #indel rate al*t < 0.405, otherwise, the probability of match even smaller than opening a gap
-INDEL = 0.8
+INDEL = 0.1
 
 #match extension probability
-GAMMA = 0.5
+GAMMA = 0
 
 #gap extension probability
 EPSILON = 0.4
