@@ -43,6 +43,8 @@ TREE = None
 #evolution distance between pair sequences
 TIME = 0
 
+REAL_TIME = None
+
 STEP = 0
 
 ITERATE = 1
@@ -66,7 +68,11 @@ OUT_FILE = ROOT + "/data/realign.fas"
 # input file name
 IN_FILE = ROOT + "/data/example.fas"
 
+IN_FORMAT = "fasta"
+
 IndelibleDataDir = "/home/czli/Downloads/INDELibleV1.03/data"
+if ROOT.startswith("/cs/fs/"):
+	IndelibleDataDir = "/cs/fs/home/czli/Downloads/INDELibleV1.03/data"
 
 # the line length in fasta format
 FASTA_LINE_LENGTH = 80

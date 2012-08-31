@@ -1,5 +1,5 @@
 #!/bin/bash
-INDELIB_DIR=/home/czli/Downloads/INDELibleV1.03/
+INDELIB_DIR=~/Downloads/INDELibleV1.03/
 CONTROL_FILE=${INDELIB_DIR}control.txt
 star=$1
 step=$2
@@ -18,7 +18,7 @@ while [ $i -lt $t ]; do
 	echo "[PARTITIONS] partitionname">>$CONTROL_FILE
  	echo "[treename modelname $rootLength]">>$CONTROL_FILE
 	echo "[SETTINGS]">>$CONTROL_FILE
- 	echo " [ancestralprint] SAME">>$CONTROL_FILE
+ 	#echo " [ancestralprint] SAME">>$CONTROL_FILE
 	echo "[EVOLVE] partitionname 1 ./data/output$branchLength">>$CONTROL_FILE 
 	cd ${INDELIB_DIR};./src/indelible
 	while [ $? -ne 0 ]; do

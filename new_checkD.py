@@ -25,6 +25,7 @@ parser.add_option("-s", "--slen", dest="length", default="100", help="result ali
 parser.add_option("-r", "--rep", dest="rep", default="10", help="replicate num")
 parser.add_option("-d", "--dtree", dest="tree", default="(A:0.1,B:0.1)", help="replicate num")
 parser.add_option("-m", "--model", dest="model", default="Durbin", help="alignment model name")
+parser.add_option("-f", "--format", dest="format", default="fasta", help="input file format")
 (options, arguments) = parser.parse_args()
 max_thread = 5#int(options.max_thread)
 cpu_num = multiprocessing.cpu_count()
@@ -58,9 +59,9 @@ def single_thread(node, job):
 	(job_id, t, block_id) = job
 	print("%s->%s %.2f %d"%(node, job_id, t, block_id))
 	try:
-		accuracy = commands.getoutput('''ssh -o StrictHostKeyChecking=no %s 'cd Documents/IB/pair_HMM/;./pair_hmm.py len=%s t=%.2f a=%s e=%s g=%s l=%s rep=%s id=%d in=%s out=%s m=%s alignment=1' '''%(node,  options.length, t, options.indel, options.extension, options.gamma, options.Lambda, options.rep, block_id, options.ifname, options.ofname, options.model))
+		accuracy = commands.getoutput('''ssh -o StrictHostKeyChecking=no %s 'cd Documents/IB/pair_HMM/;./pair_hmm.py len=%s t=%.2f a=%s e=%s g=%s l=%s rep=%s id=%d in=%s out=%s m=%s itype=%s alignment=1' '''%(node,  options.length, t, options.indel, options.extension, options.gamma, options.Lambda, options.rep, block_id, options.ifname, options.ofname, options.model, options.format))
 		os.system("echo '-->realignment job %d_%d end on node %s' >>%s"%(job_id, block_id,  node, logFile))
-		os.system("echo '%s' > %s/result_for_%s_%d_with_t%.2f"%(accuracy, dataDir, os.path.splitext(options.ifname)[0], block_id, t))
+		os.system("echo '%s' > %s/result_for_%s_%d_with_t%.2f"%(accuracy, dataDir, os.path.splitext(os.path.basename(options.ifname))[0], block_id, t))
 	except:
 		job_queue.put((job))
 	time.sleep(random.randint(1000, 5000)/1000.00)
@@ -125,12 +126,12 @@ def simulationAndRealignment():
 		acc = []
 		lScore = []
 		for j in range(block):
-			jobFName = "%s/result_for_%s_%d_with_t%.2f"%(dataDir, os.path.splitext(options.ifname)[0], j, 0.05+0.05*i)
+			jobFName = "%s/result_for_%s_%d_with_t%.2f"%(dataDir, os.path.splitext(os.path.basename(options.ifname))[0], j, 0.05+0.05*i)
 			s = commands.getoutput("tail -1 %s |tr -d '(|)|'|tr ',' ' '"%(jobFName))
 			s = s.split()
 			acc.append(float(s[0]))
 			lScore.append(float(s[1]))
-			os.system("rm "+jobFName)
+			#os.system("rm "+jobFName)
 		accuracy.append(np.array(acc).mean())
 		score.append(np.array(lScore).mean())
 	os.system("echo %s > %s/finalResult"%(' '.join([str(i) for i in accuracy]), dataDir))
@@ -140,7 +141,7 @@ def simulationAndRealignment():
 if __name__ == "__main__":
 	global dataDir 
 	global logFile 
-	dataDir = 'data/%s'%(os.path.splitext(options.ifname)[0])
+	dataDir = 'data/%s'%(options.ofname)
 	if not os.path.exists(dataDir):
 		os.mkdir(dataDir)
 	logFile = dataDir+'/log.txt'

@@ -76,20 +76,22 @@ def fidelity(real, path):
 	printPairAlign([path[0].seq,path[1].seq])
 	'''
 	for index in range(real[0].length):
-		site = real[0].site[index]
-		if settings.GAP == real[0].seq[index]:
-			pIndex = path[1].site.index(site)
-			if settings.GAP == path[0].seq[pIndex]:
-				rNum += 1
-		elif settings.GAP == real[1].seq[index]:
-			pIndex = path[0].site.index(site)
-			if settings.GAP == path[1].seq[pIndex]:
-				rNum += 1
-		else:
-			pIndex = path[0].site.index(site)
-			if path[1].site[pIndex] == site:
-				rNum += 1
-
+		a = real[0].seq[index]
+		b = real[1].seq[index]
+		if not (settings.GAP == a and settings.GAP == b):
+			site = real[0].site[index]
+			if settings.GAP == a:
+				pIndex = path[1].site.index(site)
+				if settings.GAP == path[0].seq[pIndex]:
+					rNum += 1
+			elif settings.GAP == b:
+				pIndex = path[0].site.index(site)
+				if settings.GAP == path[1].seq[pIndex]:
+					rNum += 1
+			else:
+				pIndex = path[0].site.index(site)
+				if path[1].site[pIndex] == site:
+					rNum += 1
 	return ((1.0*rNum)/real[0].length)
 
 def observedDifference(seqPair):
@@ -122,7 +124,7 @@ def pairSimulation(outFile, plot=False):
 		settings.TIME = t1 + t2
 	pair_hmm = None
 	if "Durbin" == settings.MODEL:
-		pHMM(t1, t2, left, right)
+		pair_hmm = pHMM(t1, t2, left, right)
 	elif "aModel" == settings.MODEL:
 		pair_hmm = PAGAN(t1, t2, left, right)
 	#np.savetxt('%s/substitutionMatrix'%(os.path.dirname(settings.IN_FILE)), np.array(dnaModelJC69.eMatrix), fmt="%.5f")	
@@ -150,9 +152,14 @@ def pairSimulation(outFile, plot=False):
 def readPairSequences(inFile, num=1):
 	pairArr = []
 	sequences = []
-	for s in SeqIO.parse(inFile, "fasta"):
+	def name(x):
+		if settings.REAL_TIME:
+			return "%s:%.2f"%(x, settings.REAL_TIME)
+		return x
+			
+	for s in SeqIO.parse(inFile, settings.IN_FORMAT):
 		if len(pairArr) < num:
-			sequences.append(seqDNA(s.id, s.seq.data))
+			sequences.append(seqDNA(name(s.id), s.seq.data))
 			if 2 == len(sequences):
 				pairArr.append(sequences[:])
 				sequences = []
@@ -176,7 +183,13 @@ def pairAlignmentWithSpecificParameters(param):
 	for c in alignment: c.removeGap()
 	(alignment, score) = pair_hmm.alignSeq(alignment)	
 	if param[1]:
-		pHmm = pHMM(realTime1, realTime2)
+		pHmm = None
+		if settings.ACHECK:
+			settings.INDEL = float(re.search('_a(\d+\.?\d+)_', settings.IN_FILE).group(1))
+		if "Durbin" == settings.MODEL:
+			pHmm = pHMM(realTime1, realTime2) 
+		elif "aModel" == settings.MODEL:
+			pHmm = PAGAN(realTime1, realTime2)
 		score = pHmm.getProbability(alignment)
 	accuracy = fidelity(sequences, alignment)
 	#np.savetxt("%s/substitutionMatrix_%.2f"%(os.path.dirname(settings.IN_FILE), settings.TIME), np.array(dnaModelJC69.eMatrix), fmt="%.5f")
@@ -393,7 +406,6 @@ def checkAccuracySimulation():
 			eMatch.append(pair_hmm.getExpectedMatch())
 			d.append(sumD/(localIter - wIter))
 			settings.TIME += settings.STEP		
-
 		indelDif = runIndelible(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
 		#phylosimDif = runPhylosim(start, settings.STEP, settings.ITERATE, settings.INDEL, settings.LENGTH)
       		

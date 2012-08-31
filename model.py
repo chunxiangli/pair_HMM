@@ -187,7 +187,6 @@ class State:
 			return self.children[randomIndex(self.outFreq)]
 #empty for dummystate
 
-def openGapProb(t): return 0.1#(1- math.exp(-settings.INDEL * (t))) 
 class pHMM:
 	gapOpenProb = 1	
 	
@@ -207,17 +206,22 @@ class pHMM:
 	#transition Matrix: W X Y M
 	transMatrix = []
 	stateDistr = None
+	#extension:{indelRate:{t:openGapProb}}
+	rateToProb={'0.4':{'0.1':{'0.1':0.05, '0.2':0.01, '0.3':0.015,'0.4':0.02,'0.5':0.025,'0.6':0.03},
+			 '0.2':{'0.1':0.01, '0.2':0.02, '0.3':0.03,'0.4':0.04,'0.5':0.05,'0.6':0.06}}}
 
 	def __init__(self,t1, t2, name1="left", name2="right"):
 		self.time1 = t1
 		self.time2 = t2
 		self.left = name1
 		self.right = name2
-		self.gapOpenProb = openGapProb(t1+t2)
+		self.gapOpenProb = self.openGapProb(t1+t2)
 		self.stateInit()
 		dnaModelJC69.setEmissionProb(t1+t2)
 		#random.seed(1)
-
+	
+	def openGapProb(self, t): 
+		return self.rateToProb['%.1f'%settings.EPSILON]['%.1f'%settings.INDEL]['%.1f'%t]
 	def stateInit(self):
 		self.xState = State([], [settings.EPSILON, self.gapOpenProb, self.gapOpenProb] ,[], [settings.EPSILON ,1-settings.EPSILON], xInsertModel, "X")
 		self.xState.children.append(self.xState)
@@ -491,6 +495,10 @@ class pHMM:
 		return  settings.LENGTH * (self.stateDistr[3] / sum(self.stateDistr[1:]))
 
 class PAGAN(pHMM):
+	
+	def openGapProb(self, t): 
+		return (1- math.exp(-settings.INDEL * (t))) 
+
 	def stateInit(self):
 		self.dummyState = State([], [1 - settings.EPSILON, 1- settings.EPSILON, 1 - settings.GAMMA], [None],[1.0], eModel) 
 		self.xState = State([], [settings.EPSILON, self.gapOpenProb] ,[None, self.dummyState], [settings.EPSILON ,1-settings.EPSILON], xInsertModel, "X")
