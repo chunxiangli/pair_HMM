@@ -49,7 +49,9 @@ def readArgv(argv):
 			settings.__dict__[floatArguments[key]] = float(value)
 		elif key in fileArguments:
 			if "in" == key:
-				if len(re.findall(r'/', value)) and os.path.exists("./data/%s"%(value.split('/')[0])):
+				if len(re.findall(r'/', value)):
+					if not os.path.exists("./data/%s"%(value.split('/')[0])):
+						os.system("mkdir ./data/%s"%(value.split('/')[0]))
 					if None != settings.ID:
 						settings.__dict__[fileArguments[key]] = '%s/data/%s_%s%s'%(settings.ROOT, os.path.splitext(value)[0], settings.ID, os.path.splitext(value)[1])
 					else:
