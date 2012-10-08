@@ -207,12 +207,17 @@ class pHMM:
 	transMatrix = []
 	stateDistr = None
 	#extension:{indelRate:{t:openGapProb}}
-	rateToProb={'0.4':{'0.1':{'0.1':0.05, '0.2':0.01, '0.3':0.015,'0.4':0.02,'0.5':0.025,'0.6':0.03},
-			 '0.2':{'0.1':0.01, '0.2':0.02, '0.3':0.03,'0.4':0.04,'0.5':0.05,'0.6':0.06},
-			 '0.3':{'0.4':0.06},
-			 '0.4':{'0.4':0.08},
-			 '0.5':{'0.4':0.1},
-			 '0.6':{'0.4':0.12}}}
+	rateToProb={'0.4':{'0.05':{'0.20':0.005, '0.40':0.01},'0.10':{'0.05':0.0025, '0.10':0.005, '0.15':0.0075, '0.20':0.01, '0.25':0.0125, '0.30':0.015, '0.35':0.0175,'0.40':0.02, '0.45':0.0225, '0.50':0.025, '0.55':0.0275, '0.60':0.03},
+			 '0.15':{'0.20':0.015, '0.40':0.03},
+			 '0.20':{'0.10':0.01, '0.15':0.015, '0.20':0.02, '0.25':0.025, '0.30':0.03, '0.35':0.035, '0.40':0.04, '0.45':0.045, '0.50':0.05, '0.55':0.055, '0.60':0.06},
+			 '0.25':{'0.20':0.025,'0.40':0.05},
+			 '0.30':{'0.20':0.03,'0.40':0.06},
+			 '0.35':{'0.20':0.035, '0.40':0.07},
+			 '0.40':{'0.20':0.04,'0.40':0.08},
+			 '0.45':{'0.20':0.045,'0.40':0.09},
+			 '0.50':{'0.20':0.05,'0.40':0.1},
+			 '0.55':{'0.20':0.055,'0.40':0.11},
+			 '0.60':{'0.20':0.06,'0.40':0.12}}}
 
 	def __init__(self,t1, t2, name1="left", name2="right"):
 		self.time1 = t1
@@ -225,7 +230,7 @@ class pHMM:
 		#random.seed(1)
 	
 	def openGapProb(self, t): 
-		return self.rateToProb['%.1f'%settings.EPSILON]['%.1f'%settings.INDEL]['%.1f'%t]
+		return self.rateToProb['%.1f'%settings.EPSILON]['%.2f'%settings.INDEL]['%.2f'%t]
 	def stateInit(self):
 		self.xState = State([], [settings.EPSILON, self.gapOpenProb, self.gapOpenProb] ,[], [settings.EPSILON ,1-settings.EPSILON], xInsertModel, "X")
 		self.xState.children.append(self.xState)
@@ -662,6 +667,7 @@ class PAGAN(pHMM):
 					pointerMatrix[state.stateType][i][j] = tempPointer
 		s = []
 		for state in stateArr:
+			#s.append(scoreMatrix[state.stateType][xRange - 1][yRange - 1]*log(self.dummyState.inFreq[stateArr.index(state)]))
 			s.append(scoreMatrix[state.stateType][xRange - 1][yRange - 1])
 			
 		return self.optimalAlignment(seq, s, pointerMatrix)
