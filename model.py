@@ -503,7 +503,7 @@ class pHMM:
 			self.setStateDistribution()
 		return  settings.LENGTH * (self.stateDistr[3] / sum(self.stateDistr[1:]))
 
-class PAGAN(pHMM):
+class PRANK(pHMM):
 	
 	def openGapProb(self, t): 
 		return (1- math.exp(-settings.INDEL * (t))) 
@@ -655,11 +655,14 @@ class PAGAN(pHMM):
 						yIndex += 1
 					elif "Y" == state.stateType:
 						xIndex += 1
-					maxScore = scoreMatrix[state.stateType][xIndex][yIndex] + log(state.inFreq[0])
+					maxScore = mInf
 					tempPointer = state.stateType
 					for stateIndex in range(len(self.dummyState.parent)):
 						stateType = self.dummyState.parent[stateIndex].stateType
-						tempScore = scoreMatrix[stateType][xIndex][yIndex] + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+						if stateType != state.stateType:
+                                                        tempScore = scoreMatrix[stateType][xIndex][yIndex] + log(self.dummyState.inFreq[stateIndex]) + log(state.inFreq[1])
+                                                else:
+                                                        tempScore = scoreMatrix[stateType][xIndex][yIndex] + log(state.inFreq[0] + self.dummyState.inFreq[stateIndex]*state.inFreq[1])
 						if tempScore > maxScore:
 							maxScore = tempScore
 							tempPointer = stateType

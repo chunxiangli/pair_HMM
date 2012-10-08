@@ -126,7 +126,7 @@ def pairSimulation(outFile, plot=False):
 	if "Durbin" == settings.MODEL:
 		pair_hmm = pHMM(t1, t2, left, right)
 	elif "aModel" == settings.MODEL:
-		pair_hmm = PAGAN(t1, t2, left, right)
+		pair_hmm = PRANK(t1, t2, left, right)
 	#np.savetxt('%s/substitutionMatrix'%(os.path.dirname(settings.IN_FILE)), np.array(dnaModelJC69.eMatrix), fmt="%.5f")	
 	p = []
 	indelArr = []
@@ -178,7 +178,7 @@ def pairAlignmentWithSpecificParameters(param):
 	if "Durbin" == settings.MODEL:
 		pair_hmm = pHMM(t1, t2)
 	elif "aModel" == settings.MODEL:
-		pair_hmm = PAGAN(t1, t2)
+		pair_hmm = PRANK(t1, t2)
 	alignment = copy.deepcopy(sequences)
 	for c in alignment: c.removeGap()
 	(alignment, score) = pair_hmm.alignSeq(alignment)	
@@ -189,7 +189,7 @@ def pairAlignmentWithSpecificParameters(param):
 		if "Durbin" == settings.MODEL:
 			pHmm = pHMM(realTime1, realTime2) 
 		elif "aModel" == settings.MODEL:
-			pHmm = PAGAN(realTime1, realTime2)
+			pHmm = PRANK(realTime1, realTime2)
 		score = pHmm.getProbability(alignment)
 	accuracy = fidelity(sequences, alignment)
 	#np.savetxt("%s/substitutionMatrix_%.2f"%(os.path.dirname(settings.IN_FILE), settings.TIME), np.array(dnaModelJC69.eMatrix), fmt="%.5f")
