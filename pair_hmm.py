@@ -23,6 +23,7 @@ from matplotlib import pyplot
 
 cpuNum  = multiprocessing.cpu_count()
 sequencesBlock = []
+
 def printHelp(argv):
 	print '''
 	Usage: %s [args]
