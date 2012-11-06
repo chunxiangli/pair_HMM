@@ -1,1 +1,3 @@
- 
+'''
+default initial file.
+'''
